@@ -1,0 +1,9 @@
+{
+  "format": 1,
+  "name": "rally3",
+  "root": "RALLY",
+  "path": "RallyCars/RALLYCAR3",
+  "moves": "car",
+  "off": ["Shifting", "Throttle", "Steering", "Navigation", "Passing", "Brakezones", "Timing", "Disable"],
+  "offElsewhere": [{ "path": "RALLY/RallyCars", "fsm": "AIdrivers" }]
+}

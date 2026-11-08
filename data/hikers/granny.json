@@ -1,0 +1,23 @@
+{
+  "format": 1,
+  "name": "granny",
+  "logic": { "path": "ChurchGrandma/GrannyHiker", "fsm": "Logic" },
+  "walker": "ChurchGrandma",
+  "body": "ChurchGrandma/GrannyHiker/Char",
+  "paused": [
+    { "path": "ChurchGrandma", "fsm": "Move" },
+    { "path": "ChurchGrandma", "fsm": "Obstacle" },
+    { "path": "ChurchGrandma", "fsm": "Raycast" },
+    { "path": "ChurchGrandma", "fsm": "Navigation" }
+  ],
+  "aboard": "Open door",
+  "off": "Start walking",
+  "dies": "State 10",
+  "pivot": "GetInPivot",
+  "passengerMass": "PassengerMassObject",
+  "getIn": [
+    { "clip": "granny_get_car_in" }
+  ],
+  "keep": { "path": "JOBS/Mummola", "fsm": "Logic", "variable": "Bonus" },
+  "hit": { "path": "ChurchGrandma/GrannyHiker/Char/HumanTriggerCrime", "fsm": "CarHit" }
+}

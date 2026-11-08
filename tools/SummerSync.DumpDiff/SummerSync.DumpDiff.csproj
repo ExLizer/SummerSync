@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Desktop tool for the dumps written by SummerSync.Dumper: summary, diff between two dumps with noise
+    filters, and a heuristic draft of the FSM classification.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>dumpdiff</AssemblyName>
+    <RootNamespace>SummerSync.DumpDiff</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\SummerSync.Core\SummerSync.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="SummerSync.DumpDiff.Tests" />
+  </ItemGroup>
+
+</Project>

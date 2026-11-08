@@ -1,0 +1,8 @@
+{
+  "format": 1,
+  "name": "pubfighter",
+  "root": "HUMANS",
+  "path": "FighterPub",
+  "pause": [{ "path": "", "fsm": "Activate" }],
+  "holds": [{ "path": "", "fsm": "Activate", "states": ["Bar open?", "Player away?"], "within": 800 }]
+}

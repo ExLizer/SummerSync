@@ -1,0 +1,10 @@
+{
+  "format": 1,
+  "name": "kylajani",
+  "root": "NPC_CARS",
+  "find": "KYLAJANI",
+  "alsoRoot": "DRAGRACE",
+  "moves": "car",
+  "off": ["Throttle", "Steering", "Shifting", "ThrottleDrag", "Staging", "Raycast", "Passing", "Navigation", "Brakezones"],
+  "offElsewhere": [{ "path": "NPC_CARS", "fsm": "Amis Setup" }, { "path": "NPC_CARS", "fsm": "GreenMenace" }]
+}

@@ -1,0 +1,12 @@
+{
+  "format": 1,
+  "name": "watch",
+  "root": "Database",
+  "path": "DatabaseOrders/Wristwatch",
+  "values": [
+    { "path": "", "fsm": "Data", "variable": "Owned", "kind": "said" }
+  ],
+  "actives": [
+    { "path": "/PLAYER/Pivot/AnimPivot/Camera/FPSCamera/FPSCamera/Watch/Animate/BreathAnim/WristwatchHand", "said": true }
+  ]
+}

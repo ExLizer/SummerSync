@@ -1,0 +1,13 @@
+{
+  "format": 1,
+  "name": "teimoads",
+  "root": "JOBS",
+  "path": "TeimoADs",
+  "pause": [{ "path": "", "fsm": "Data" }],
+  "values": [
+    { "path": "", "fsm": "Data", "variable": "JobAccepted", "kind": "said" },
+    { "path": "", "fsm": "Data", "variable": "OfferJob", "kind": "said" },
+    { "path": "", "fsm": "Data", "variable": "Delivered", "kind": "amount", "scale": 1 }
+  ],
+  "actives": ["/STORE/LOD/ActivateStore/PayMoneyAdvert", "/STORE/AdvertSpawn"]
+}

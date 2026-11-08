@@ -1,0 +1,10 @@
+{
+  "format": 1,
+  "name": "moose",
+  "root": "AnimalsMoose",
+  "find": "Moose",
+  "count": 2,
+  "moves": "transform",
+  "off": ["Move", "Raycast"],
+  "gone": { "path": "Offset/Mesh/Collider", "fsm": "CarHit", "state": "State 2" }
+}

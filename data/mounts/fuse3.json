@@ -1,0 +1,8 @@
+{
+  "format": 1,
+  "name": "fuse3",
+  "part": "fuse holder(Clone)",
+  "into": "/YARD/Building/Dynamics/FuseTable/Fusetable/Fuse3Pivot",
+  "mount": { "path": "/YARD/Building/Dynamics/FuseTable/Fusetable/Fuse3", "fsm": "Assembly", "variable": "Part", "state": "Wait" },
+  "unmount": { "fsm": "Removal", "state": "Remove part" }
+}

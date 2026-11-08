@@ -1,0 +1,22 @@
+<Project>
+  <!--
+    References to the game's own assemblies, resolved from the local installation.
+    They are never copied to the output folder or into the repository.
+  -->
+  <ItemGroup>
+    <GameAssembly Include="UnityEngine;UnityEngine.UI;Assembly-CSharp;Assembly-CSharp-firstpass;Assembly-UnityScript-firstpass;PlayMaker;MSCLoader;0Harmony;ES2;cInput" />
+    <Reference Include="@(GameAssembly)">
+      <HintPath>$(ManagedPath)\%(Identity).dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <Target Name="CheckGameInstallation" BeforeTargets="ResolveAssemblyReferences">
+    <Error Condition="'$(GamePath)' == ''"
+           Text="GamePath is not set. Copy GamePaths.user.props.example to GamePaths.user.props and point it at your My Summer Car installation." />
+    <Error Condition="!Exists('$(ManagedPath)\UnityEngine.dll')"
+           Text="My Summer Car was not found at '$(GamePath)' (missing mysummercar_Data\Managed\UnityEngine.dll). Fix GamePath in GamePaths.user.props." />
+    <Error Condition="!Exists('$(ManagedPath)\MSCLoader.dll')"
+           Text="MSCLoader is not installed in '$(GamePath)' (missing mysummercar_Data\Managed\MSCLoader.dll). Install it with MSCLInstaller first." />
+  </Target>
+</Project>

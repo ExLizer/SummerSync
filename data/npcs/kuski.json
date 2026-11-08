@@ -1,0 +1,11 @@
+{
+  "format": 1,
+  "name": "kuski",
+  "root": "NPC_CARS",
+  "find": "KUSKI",
+  "alsoRoot": "DRAGRACE",
+  "moves": "car",
+  "off": ["Throttle", "Steering", "Shifting", "Raycast", "Lift", "Brakezones", "Passing", "Navigation"],
+  "offElsewhere": [{ "path": "NPC_CARS", "fsm": "Kuski Setup" }],
+  "follows": [{ "path": "CrashEvent", "fsm": "Crash", "state": "Ragdoll" }]
+}

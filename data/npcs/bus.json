@@ -1,0 +1,9 @@
+{
+  "format": 1,
+  "name": "bus",
+  "root": "NPC_CARS",
+  "find": "BUS",
+  "moves": "car",
+  "off": ["Steering", "Throttle", "Shifting", "Raycast", "Passing", "Navigation", "PassCheck", "Brakezones", "StopBus", "Start", "Angrytimer", "DrivingIssue"],
+  "offElsewhere": [{ "path": "NPC_CARS", "fsm": "Bus Setup" }]
+}

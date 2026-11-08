@@ -1,0 +1,15 @@
+{
+  "format": 1,
+  "name": "suski",
+  "root": "JOBS",
+  "path": "Suski",
+  "pause": [{ "path": "SuskiStages", "fsm": "Logic" }],
+  "values": [
+    { "path": "SuskiStages", "fsm": "Logic", "variable": "SuskiStage", "kind": "said" }
+  ],
+  "relay": [
+    { "path": "SuskiStages", "fsm": "Logic", "states": ["Note active", "State 2", "Fail", "State 3", "The End 2"], "from": "host" },
+    { "path": "SuskiStages/Note/note(xxxxx)", "fsm": "Use", "states": ["Wait button"], "from": "clients", "quiet": true }
+  ],
+  "positions": [{ "path": "SuskiPivot", "once": true }]
+}

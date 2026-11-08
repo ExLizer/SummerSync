@@ -1,0 +1,23 @@
+{
+  "format": 1,
+  "name": "jokkemoving",
+  "logic": { "path": "JOBS/HouseDrunk/Moving/JokkeHiker1", "fsm": "Hitch" },
+  "walker": "JOBS/HouseDrunk/Moving/JokkeHiker1",
+  "body": "JOBS/HouseDrunk/Moving/JokkeHiker1/Pivot/Char",
+  "animated": "JOBS/HouseDrunk/Moving/JokkeHiker1/Pivot",
+  "paused": [
+    { "path": "JOBS/HouseDrunk/Moving/JokkeHiker1", "fsm": "Move" },
+    { "path": "JOBS/HouseDrunk/Moving/JokkeHiker1", "fsm": "Obstacle" },
+    { "path": "JOBS/HouseDrunk/Moving/JokkeHiker1", "fsm": "Raycast" }
+  ],
+  "aboard": "Open door 2",
+  "off": "Idle",
+  "dies": "State 10",
+  "pivot": "GetInPivot",
+  "passengerMass": "PassengerMassObject",
+  "getIn": [
+    { "vehicle": "HAYOSIKO(1500kg, 250)", "clip": "fat_get_van_in" },
+    { "clip": "fat_get_car_in" }
+  ],
+  "hit": { "path": "JOBS/HouseDrunk/Moving/JokkeHiker1/Pivot/HumanTrigger", "fsm": "CarHit" }
+}

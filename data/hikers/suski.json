@@ -1,0 +1,25 @@
+{
+  "format": 1,
+  "name": "suski",
+  "logic": { "path": "JOBS/Suski/SuskiPivot/SuskiHiker", "fsm": "Logic" },
+  "walker": "JOBS/Suski/SuskiPivot",
+  "body": "JOBS/Suski/SuskiPivot/SuskiHiker/Char",
+  "paused": [
+    { "path": "JOBS/Suski/SuskiPivot", "fsm": "Move" },
+    { "path": "JOBS/Suski/SuskiPivot", "fsm": "Obstacle" },
+    { "path": "JOBS/Suski/SuskiPivot", "fsm": "Raycast" },
+    { "path": "JOBS/Suski/SuskiPivot/SuskiHiker/Char/Functions", "fsm": "Speak" },
+    { "path": "JOBS/Suski/SuskiPivot/SuskiHiker/Char/Functions", "fsm": "StalledCar" },
+    { "path": "JOBS/Suski/SuskiPivot/SuskiHiker/Char/Functions", "fsm": "CheckCar" }
+  ],
+  "aboard": "Open door",
+  "off": "Start walking",
+  "dies": "State 9",
+  "pivot": "GetInPivot",
+  "passengerMass": "PassengerMassObject",
+  "getIn": [
+    { "vehicle": "FERNDALE(1630kg)", "clip": "woman_get_car_in", "pivot": "GetInPivotSuski" },
+    { "clip": "woman_get_car_in" }
+  ],
+  "hit": { "path": "JOBS/Suski/SuskiPivot/SuskiHiker/HumanTrigger", "fsm": "CarHit" }
+}

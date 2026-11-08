@@ -1,0 +1,46 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The MSCLoader mod. Core sources are compiled into this assembly so the mod ships as a single DLL
+    (nothing to place in Mods\References). Game assemblies come from the local installation.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net35</TargetFramework>
+    <AssemblyName>SummerSync</AssemblyName>
+    <RootNamespace>SummerSync.Unity</RootNamespace>
+    <!-- The game's Mono runtime cannot read portable PDBs. -->
+    <DebugType>none</DebugType>
+  </PropertyGroup>
+
+  <!-- The developers' build unless told otherwise (build.ps1 -Public, used by publicar.cmd): see Edition.cs. -->
+  <PropertyGroup Condition="'$(SummerSyncEdition)' != 'Public'">
+    <DefineConstants>$(DefineConstants);DEVELOPER</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\SummerSync.Core\**\*.cs" Exclude="..\SummerSync.Core\bin\**;..\SummerSync.Core\obj\**" LinkBase="Core" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- MSCLoader reads the assembly GUID to identify the mod file. -->
+    <AssemblyAttribute Include="System.Runtime.InteropServices.GuidAttribute">
+      <_Parameter1>22d3d4e3-cf51-43af-ba3f-6cb44c93732a</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The mod ships as one file: its data travels inside it. -->
+    <EmbeddedResource Include="..\..\data\vehicles\*.json" LogicalName="SummerSync.vehicles.%(Filename).json" />
+    <EmbeddedResource Include="..\..\data\npcs\*.json" LogicalName="SummerSync.npcs.%(Filename).json" />
+    <EmbeddedResource Include="..\..\data\hikers\*.json" LogicalName="SummerSync.hikers.%(Filename).json" />
+    <EmbeddedResource Include="..\..\data\fighters\*.json" LogicalName="SummerSync.fighters.%(Filename).json" />
+    <EmbeddedResource Include="..\..\data\jobs\*.json" LogicalName="SummerSync.jobs.%(Filename).json" />
+    <EmbeddedResource Include="..\..\data\mounts\*.json" LogicalName="SummerSync.mounts.%(Filename).json" />
+    <EmbeddedResource Include="..\..\data\satsuma\parts.json" LogicalName="SummerSync.satsuma.parts.json" />
+    <EmbeddedResource Include="..\..\data\satsuma\values.json" LogicalName="SummerSync.satsuma.values.json" />
+    <EmbeddedResource Include="..\..\packaging\github-repo.txt" LogicalName="SummerSync.updater.github-repo.txt" />
+  </ItemGroup>
+
+  <Import Project="..\..\build\GameReferences.targets" />
+
+</Project>

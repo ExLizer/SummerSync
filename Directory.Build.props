@@ -1,0 +1,27 @@
+<Project>
+  <!-- Machine-specific game location. See GamePaths.user.props.example. -->
+  <Import Project="$(MSBuildThisFileDirectory)GamePaths.user.props" Condition="Exists('$(MSBuildThisFileDirectory)GamePaths.user.props')" />
+
+  <PropertyGroup>
+    <GamePath Condition="'$(GamePath)' == ''">$(MSC_GAME_PATH)</GamePath>
+    <ManagedPath Condition="'$(GamePath)' != ''">$(GamePath)\mysummercar_Data\Managed</ManagedPath>
+    <ModsPath Condition="'$(ModsPath)' == '' And '$(GamePath)' != ''">$(GamePath)\Mods</ModsPath>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <Version>0.2.10</Version>
+    <Product>SummerSync</Product>
+    <Authors>Julian</Authors>
+    <Description>Multiplayer mod for My Summer Car.</Description>
+
+    <!--
+      The game runs on Unity 5.0.0f4 / Mono 2.x. Language features are fine as long as they need no
+      runtime or BCL support that is missing there; tools/SummerSync.AsmInspect verify-refs enforces the BCL part.
+    -->
+    <LangVersion>10.0</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Deterministic>true</Deterministic>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+</Project>

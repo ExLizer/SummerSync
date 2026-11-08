@@ -1,0 +1,13 @@
+{
+  "format": 1,
+  "name": "diskette",
+  "part": "diskette(itemx)",
+  "into": "/YARD/Building/BEDROOM1/COMPUTER/Computer/Meshes/386_case(xxxxx)/DiskDrive/Sled/diskette_sled_pivot",
+  "mount": {
+    "path": "/YARD/Building/BEDROOM1/COMPUTER/Computer/Meshes/386_case(xxxxx)/DiskDrive/TriggerDiskette",
+    "fsm": "Assembly",
+    "variable": "Diskette",
+    "event": "DISKETTEIN"
+  },
+  "unmount": { "path": "/YARD/Building/BEDROOM1/COMPUTER/Computer/Meshes/386_case(xxxxx)/DiskDrive/TriggerDiskette", "fsm": "Assembly", "state": "Sound" }
+}

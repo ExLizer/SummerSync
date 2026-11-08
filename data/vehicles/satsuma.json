@@ -1,0 +1,65 @@
+{
+  "format": 2,
+  "nick": "satsuma",
+  "rootName": "SATSUMA(557kg, 248)",
+  "driveTriggerPath": "PlayerTrigger/DriveTrigger",
+  "driveMachineName": "PlayerTrigger",
+  "keyVariable": "PlayerKeySatsuma",
+  "interior": {
+    "centre": [
+      0,
+      0.27,
+      -0.18
+    ],
+    "halfSize": [
+      0.62,
+      0.55,
+      0.88
+    ]
+  },
+  "exitMargin": 0.25,
+  "lights": {
+    "switchUnder": "dashboard meters(Clone)",
+    "switchPath": "Knobs/ButtonsDash/LightModes",
+    "switchMachine": "Use",
+    "powerPath": "Electricity/PowerON"
+  },
+  "engine": {
+    "starterPath": "CarSimulation/Car/Starter",
+    "starterMachine": "Starter",
+    "runningState": "Running",
+    "ignitionPath": "Dashboard/Steering/steering_column2/IgnitionSatsuma",
+    "ignitionMachine": "UseNew"
+  },
+  "knobs": [
+    { "name": "wipers", "under": "dashboard meters(Clone)", "path": "Knobs/ButtonsDash/ButtonWipers", "machine": "Use", "variable": "Selection", "states": ["Off", "Slow", "Fast"] },
+    { "name": "hazard lights", "under": "dashboard meters(Clone)", "path": "Knobs/ButtonsDash/Hazard", "machine": "Use", "variable": "HazardsOn", "states": ["On", "Off"] },
+    { "name": "choke", "under": "dashboard meters(Clone)", "path": "Knobs/ButtonsDash/Choke", "machine": "Choke", "variable": "ChokeLevel", "step": 0.05, "steps": 20 },
+    { "name": "interior light", "path": "Interior/InteriorLight", "machine": "Use", "variable": "LightON", "states": ["State 3", "State 2"] },
+    { "name": "radio volume", "under": "radio(Clone)", "path": "ButtonsRadio/RadioVolume", "machine": "Knob", "variable": "Volume", "step": 0.1, "steps": 10, "states": ["Off", "Check tune"] },
+    { "name": "radio tuner", "under": "radio(Clone)", "path": "TunerPivot/RadioTuner", "machine": "Knob", "variable": "Tune", "from": 0.05, "step": 0.001, "steps": 60, "states": ["Wait1"] },
+    { "name": "parking brake", "path": "MiscParts/HandBrake/handbrake(xxxxx)/handbrake lever", "machine": "Use", "variable": "KnobPos", "step": 2, "steps": 10 },
+    { "name": "windscreen", "path": "Body/Windshield", "machine": "Data", "variable": "Damaged", "states": ["Reset", "Break glass"] },
+    { "name": "turn signals", "path": "Dashboard/TurnSignals", "machine": "Usage", "by": "simulator", "states": ["State 3", "On", "On 2"],
+      "during": [["Check player", "State 2", "State 3", "Check steering"], ["On"], ["On 2"]] }
+  ],
+  "horn": { "path": "CarSimulation/CarHorn", "buttons": [
+    { "under": "stock steering wheel(Clone)", "machine": "Horn", "pressed": "State 1" },
+    { "under": "gt steering wheel(Clone)", "machine": "Horn", "pressed": "State 1" } ] },
+  "seats": [
+    { "name": "front", "player": [0.28, -0.02, -0.13], "needs": ["Interior/pivot_seat_passenger", "Interior/pivot_seat_passenger_bucket"],
+      "belt": "handle", "beltPath": "Interior/Seatbelts" },
+    { "name": "rear left", "player": [-0.3, 0.02, -0.72], "needs": ["Interior/pivot_seat_rear"] },
+    { "name": "rear right", "player": [0.3, 0.02, -0.72], "needs": ["Interior/pivot_seat_rear"] }
+  ],
+  "crash": { "head": 300, "belt": 200, "helmetTimes": 1.5 },
+  "driver": {
+    "pedals": [
+      { "input": "clutch", "path": "Dashboard/Pedals/pedal_clutch", "axis": "x", "degrees": 9 },
+      { "input": "brake", "path": "Dashboard/Pedals/pedal_brake", "axis": "x", "degrees": 9 },
+      { "input": "throttle", "path": "Dashboard/Pedals/pedal_throttle", "axis": "x", "degrees": 8 }
+    ],
+    "levers": ["Dashboard/gear stick(xxxxx)/GearLever/Pivot/Lever", "Dashboard/center console gt(xxxxx)/GearLever/Pivot/Lever"],
+    "seat": [-0.28, -0.07, -0.07, 0.85]
+  }
+}

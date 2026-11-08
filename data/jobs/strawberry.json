@@ -1,0 +1,18 @@
+{
+  "format": 1,
+  "name": "strawberry",
+  "root": "JOBS",
+  "path": "StrawberryField",
+  "values": [
+    { "path": "LOD/Functions/Money", "fsm": "Pick", "variable": "Money", "kind": "said", "scale": 1 }
+  ],
+  "relay": [
+    { "path": "LOD/Functions/PickABox", "fsm": "Pick", "states": ["State 1"] },
+    { "path": "LOD/Functions/DropABox", "fsm": "Pick", "states": ["State 5"], "objects": ["Box"] }
+  ],
+  "actives": [
+    { "path": "LOD/Functions/Money", "said": true },
+    { "path": "LOD/Functions/PickABox", "fsm": "Pick", "said": true }
+  ],
+  "loose": ["JOBS/StrawberryField/LOD/Functions", "JOBS/StrawberryField/LOD/Functions/PickABox/SpawnPoint"]
+}

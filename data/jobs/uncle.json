@@ -1,0 +1,23 @@
+{
+  "format": 1,
+  "name": "uncle",
+  "root": "YARD",
+  "path": "UNCLE",
+  "pause": [{ "path": "", "fsm": "States" }],
+  "values": [
+    { "path": "", "fsm": "States", "variable": "UncleStage", "kind": "said" },
+    { "path": "", "fsm": "States", "variable": "UncleHome", "kind": "said" }
+  ],
+  "relay": [{
+    "fsm": "States",
+    "from": "host",
+    "states": ["Player has", "At uncle", "Away", "At inspection", "Uncle no license", "Uncle call"],
+    "spare": [
+      { "state": "At uncle", "vehicle": "Van", "also": ["VanFuelTank"] },
+      { "state": "Away", "vehicle": "Van" },
+      { "state": "At inspection", "vehicle": "Van" },
+      { "state": "Reset van pos", "vehicle": "Van" }
+    ]
+  }],
+  "actives": ["Building/GlassGenericHome", "Building/GlassGenericAway", "Home/UncleDrinking"]
+}

@@ -1,0 +1,38 @@
+{
+  "format": 1,
+  "name": "pub",
+  "paths": ["HUMANS/FighterPub/Fighter2", "HUMANS/Fighter2"],
+  "outParent": "HUMANS",
+  "decidedBy": "host",
+  "brain": "Move",
+  "calm": ["State 3", "State 2", "State 1", "State 4"],
+  "calmEntry": "State 2",
+  "keepBelow": ["Pivot/RagDoll"],
+  "keepMachines": ["JointCheck"],
+  "animations": [
+    "Pivot/Char/skeleton",
+    "Pivot/Char/skeleton/pelvis/spine_middle/spine_upper/collar_left",
+    "Pivot/Char/skeleton/pelvis/spine_middle/spine_upper/collar_right"
+  ],
+  "loose": [
+    "Pivot/Char/skeleton/pelvis/spine_middle/spine_upper/PhysHead/head/Shades/hat",
+    "Pivot/Char/skeleton/pelvis/spine_middle/spine_upper/PhysHead/head/Shades/glasses"
+  ],
+  "hits": [
+    { "path": "Pivot/Char/skeleton/pelvis/spine_middle/spine_upper/PhysHead", "fsm": "Hitbox", "state": "State 4" },
+    { "path": "Pivot/Char/skeleton/pelvis", "fsm": "Hitbox", "state": "State 4" }
+  ],
+  "fist": "PlayerFist",
+  "down": { "path": "Pivot/Char/skeleton/pelvis/spine_middle/spine_upper/PhysHead", "fsm": "Hitbox", "state": "State 5" },
+  "call": {
+    "from": { "path": "STORE/LOD/ActivateBar", "fsm": "UncleDrinking", "state": "State 2" },
+    "to": { "path": "HUMANS/FighterPub", "fsm": "Activate" },
+    "event": "ACTIVATE"
+  },
+  "struck": {
+    "path": "PLAYER/Pivot/AnimPivot/Camera/FPSCamera/FightTrigger",
+    "fsm": "Hitbox",
+    "by": "Fighter",
+    "at": "Pivot/Char/skeleton/pelvis/spine_middle/spine_upper/collar_right/shoulder_right/arm_right/hand_right/FighterFist"
+  }
+}

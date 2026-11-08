@@ -1,0 +1,8 @@
+{
+  "format": 1,
+  "name": "bucket-lid",
+  "part": "bucket lid(itemx)",
+  "into": "/ITEMS/bucket(itemx)/PivotLid",
+  "mount": { "path": "/ITEMS/bucket(itemx)/trigger_lid", "fsm": "Assembly", "state": "Assemble" },
+  "unmount": { "fsm": "Removal", "state": "Remove part" }
+}

@@ -1,0 +1,24 @@
+{
+  "format": 2,
+  "nick": "boat",
+  "rootName": "BOAT",
+  "driveTriggerPath": "GFX/Triggers/DriveTrigger",
+  "driveMachineName": "PlayerTrigger",
+  "interior": {
+    "centre": [0, 0.3, 0.15],
+    "halfSize": [0.6, 0.45, 1.9]
+  },
+  "exitMargin": 0.25,
+  "followOff": ["::Y Velocity", "::Rise Front"],
+  "followKinematic": ["GFX"],
+  "knobs": [
+    { "name": "engine", "path": "GFX/Audio", "machine": "Sound Engine", "variable": "Start", "by": "simulator", "states": ["Shut off", "Actiave sim"] }
+  ],
+  "seats": [
+    { "name": "middle", "player": [0, 0.07, 0.3], "reach": 0.9 }
+  ],
+  "crash": { "head": 1000000, "helmet": 1000000 },
+  "driver": {
+    "seat": [-0.065, -0.2, 1.42, 0.92]
+  }
+}

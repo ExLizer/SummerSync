@@ -1,0 +1,15 @@
+{
+  "format": 1,
+  "name": "drunks",
+  "root": "JOBS",
+  "path": "HouseDrunkNew/BeerCampNew/BeerCamp",
+  "pause": [{ "path": "", "fsm": "OpeningHours" }],
+  "holds": [{ "path": "", "fsm": "OpeningHours", "states": ["Wait", "Wait 2"], "within": 300 }],
+  "actives": [
+    "KiljuBuyer",
+    "/PERAJARVI/TerraceHouse/Apartments/LOD2/DoorsApartment1/DoorFront/Pivot/Handle",
+    "/JOBS/HouseDrunkNew/LOD1/DrunkParty",
+    "/JOBS/HouseDrunkNew/LOD1/DrunkParty/RagdollPivot/RagDoll",
+    "/STORE/LOD/ActivateBar/DrunksBar"
+  ]
+}

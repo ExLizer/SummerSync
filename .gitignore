@@ -1,0 +1,28 @@
+# Build output
+bin/
+obj/
+artifacts/
+
+# Local NuGet package store (see nuget.config)
+.nuget/
+
+# Packages for other players (package.cmd) and the downloads they are made from
+dist/
+.cache/
+
+# Machine-specific game location
+GamePaths.user.props
+
+# IDE
+.vs/
+.idea/
+*.user
+*.suo
+
+# Game files must never be committed
+*.unity3d
+/game-refs/
+
+# Per-instance classification draft: large and regenerable with dumpdiff classify. The by-name table is versioned.
+data/fsm-classification.draft.json
+__pycache__/

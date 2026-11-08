@@ -1,0 +1,8 @@
+{
+  "format": 1,
+  "name": "cd2-player",
+  "part": "cd(item2)",
+  "into": "*cd player(Clone)/Sled/cd_sled_pivot",
+  "mount": { "path": "*cd player(Clone)/trigger_disc", "fsm": "Assembly", "variable": "Part", "state": "Assemble" },
+  "unmount": { "path": "*cd player(Clone)/ButtonsCD/Eject", "fsm": "Use", "state": "Switch" }
+}

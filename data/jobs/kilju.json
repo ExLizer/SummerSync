@@ -1,0 +1,29 @@
+{
+  "format": 1,
+  "name": "kilju",
+  "root": "JOBS",
+  "path": "HouseDrunk/BeerCampOld/BeerCamp/KiljuBuyer",
+  "moved": ["HouseDrunkNew/BeerCampNew/BeerCamp/KiljuBuyer"],
+  "values": [
+    { "path": "Char/skeleton/pelvis/spine_middle/spine_upper/collar_left/shoulder_left/arm_left/hand_left/PayMoney", "fsm": "Use", "variable": "Money", "kind": "said", "scale": 1 }
+  ],
+  "relay": [
+    {
+      "path": "CanTrigger",
+      "fsm": "Logic",
+      "states": [
+        "Freeze Can", "Player?", "Lets see", "Drink", "Test Kilju", "Yeast", "State 3", "State 4", "State 5", "Shit", "Drink 2",
+        "Vinegar", "State 6", "State 7", "State 8", "Drink 3", "Alc", "State 9", "State 10", "State 11", "Check quality", "Okay",
+        "Good", "State 1", "State 2", "State 12", "State 13", "State 14", "Pay on", "Offer pay", "Pay off"
+      ],
+      "objects": ["Object"],
+      "deal": { "ends": ["Offer pay", "Shit", "State 2", "Pay off"] },
+      "guards": [{ "state": "Check Kilju", "object": "Object" }]
+    },
+    { "path": "CanTrigger", "fsm": "PlayerDrink", "states": ["State 2"] },
+    { "path": "Char/skeleton/pelvis/spine_middle/spine_upper/collar_left/shoulder_left/arm_left/hand_left/PayMoney", "fsm": "Use", "states": ["State 1"], "pays": "Money" }
+  ],
+  "actives": [
+    { "path": "Char/skeleton/pelvis/spine_middle/spine_upper/collar_left/shoulder_left/arm_left/hand_left/PayMoney", "said": true }
+  ]
+}

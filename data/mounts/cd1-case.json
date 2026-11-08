@@ -1,0 +1,8 @@
+{
+  "format": 1,
+  "name": "cd1-case",
+  "part": "cd(item1)",
+  "into": "/ITEMS/CDs/cd case(item1)/PivotCD",
+  "mount": { "path": "/ITEMS/CDs/cd case(item1)/trigger_cd", "fsm": "Assembly", "state": "Assemble" },
+  "unmount": { "fsm": "Removal", "state": "Remove part" }
+}

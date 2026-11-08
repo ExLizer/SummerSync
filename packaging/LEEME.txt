@@ -1,0 +1,127 @@
+SummerSync - multijugador para My Summer Car
+============================================
+
+Versión del mod: {MOD_VERSION}
+
+SummerSync deja que de 2 a 4 amigos jueguen a My Summer Car juntos en un mismo
+mundo: el del host. Se comparte casi todo lo que pasa alrededor de los
+jugadores: cada jugador, con el personaje que elige; lo que se lleva en la
+mano; los vehículos (manejar, ir de acompañante con cinturón, puertas,
+contacto, luces, tablero, radio, combustible); la hora y el clima; la plata,
+la tienda de Teimo y el pub; las puertas, las luces y los aparatos de las
+casas; el fuego y las saunas; el tráfico, los peatones y la gente del mundo;
+el teléfono; los trabajos; el armado del Satsuma; las abolladuras y los
+choques; las muertes.
+
+Es una beta: mirá "Problemas conocidos", abajo.
+
+(English: README.txt)
+
+
+Qué necesitás
+-------------
+- My Summer Car en Steam, actualizado y sin betas. Todos los jugadores tienen
+  que tener la misma versión del juego y el mismo build de SummerSync: el mismo
+  zip. Dos builds distintos no se conectan, aunque tengan el mismo número.
+- MSCLoader, el cargador de mods, instalado en el juego. SummerSync NO lo trae
+  ni lo instala: conseguilo e instalalo por tu cuenta, de su fuente oficial.
+  SummerSync se probó con MSCLoader 1.4.2.
+- Ser amigo en Steam del host.
+
+
+Instalación
+-----------
+1. Instalá MSCLoader por tu cuenta, si no lo tenés.
+2. Cerrá el juego. Copiá "2-Mod\SummerSync.dll" de este zip a la carpeta donde
+   MSCLoader tiene los mods. Si al instalar MSCLoader elegiste la carpeta del
+   juego: en Steam, clic derecho en My Summer Car > Administrar > Ver archivos
+   locales, y ahí entrá a la carpeta "Mods". Las otras dos carpetas posibles
+   son:
+      Documentos\MySummerCar\Mods
+      %USERPROFILE%\AppData\LocalLow\Amistech\My Summer Car\Mods
+3. Abrí el juego DESDE STEAM (desde la biblioteca, no desde el .exe ni desde un
+   acceso directo): si no, Steam no funciona dentro del juego y las
+   invitaciones no llegan.
+4. Para ver el mod en español: Mods > SummerSync > "Language / Idioma".
+
+
+Cómo se juega
+-------------
+- Para ser host: en el menú principal, HOST. Elegí una partida o empezá una
+  nueva, y después INVITE para invitar a tus amigos (overlay de Steam) y ENTER
+  GAME.
+- Para unirte: aceptá la invitación del host en Steam (Shift+Tab, o el chat de
+  Steam) estando en el menú principal, esperá a que llegue el mundo del host y
+  apretá ENTER GAME. Jugás en el mundo del host; tu propia partida no se toca
+  nunca.
+- Tu personaje: "Cambiar personaje" en el menú principal, o F7 en el juego.
+- Chat: apretá Y, escribí y Enter para mandárselo a todos (Esc lo cierra).
+  Anda también en el menú principal, una vez conectados, y el juego no
+  reacciona a lo que escribís. La tecla se cambia en las teclas del mod.
+- Asientos de acompañante: parate al lado de un asiento libre y apretá la tecla
+  del modo de manejo ("ENTER PASSENGER MODE"). El cinturón funciona como el del
+  conductor.
+- Muerte permanente: en la tarjeta de la partida del host, "Muerte permanente:
+  SÍ/NO". Sin ella, el jugador que muere despierta en su casa.
+- Solo el host guarda el mundo. Volver al menú principal corta la sesión.
+
+
+Ajustes (Mods > SummerSync)
+---------------------------
+- Language / Idioma: inglés o español.
+- Mostrar la información de la conexión (F8): un recuadro de texto con el
+  estado de la sesión.
+- Importar las canciones de la carpeta Radio del juego al abrirlo.
+- Abrir la consola de MSCLoader con los avisos y errores del mod: apagado,
+  salvo que lo quieras. Apagado, igual quedan en la consola cuando la abrís.
+- Invitar a un amigo, y desconectarse.
+
+
+Actualizar
+----------
+El menú principal avisa cuando hay una versión nueva. Bajala de
+mysummersync.com y reemplazá SummerSync.dll en la carpeta Mods. Todos los
+jugadores tienen que tener el mismo build: el mismo zip.
+
+
+Problemas conocidos
+-------------------
+- El peleador y los borrachos del pub siguen siendo de cada jugador.
+- Guardar la partida te lleva al menú principal, como siempre, y corta la
+  sesión para todos. Mientras guarda, el juego deja de responder unos 10
+  segundos (Windows puede decir "No responde"): esperá, no lo cierres.
+- Pantallas de carga: todos esperan en el menú principal mientras llega el
+  mundo del host; volver al menú corta la sesión.
+- No se probó con otros mods.
+
+
+Si algo sale mal
+----------------
+Mandale al host (o a la página del mod, en mysummersync.com) la carpeta entera
+   <carpeta Mods>\Config\Mod Settings\SummerSync\
+comprimida (clic derecho > Enviar a > Carpeta comprimida). Tiene el registro de
+la última vez que abriste el juego (SummerSync.log) y los cinco anteriores.
+Una captura con la información de la conexión a la vista (F8) también ayuda.
+
+
+Qué se comparte entre los jugadores
+-----------------------------------
+- El mundo del host: la partida del host se les manda a los invitados, que
+  juegan en una copia guardada en la carpeta de ajustes del mod.
+- Las canciones de la radio del host (los archivos de la carpeta Radio) se les
+  mandan a los invitados, para que todos escuchen lo mismo.
+- Algunas líneas del registro de los invitados (advertencias y parte de lo que
+  pasa) llegan al registro del host. Los registros tienen tu nombre de Steam, tu
+  identificador de Steam y la carpeta donde está instalado el juego.
+- Para saber si hay una versión nueva, el mod pregunta cuál es la última
+  publicada (un archivo chico en mysummersync.com, pedido por el cliente de Steam). Nada
+  más sale de tu computadora.
+
+
+Cómo sacarlo
+------------
+Borrá Mods\SummerSync.dll. Lo que guarda el mod (la copia del mundo del host,
+las canciones recibidas, tus ajustes) está en
+Mods\Config\Mod Settings\SummerSync\: se puede borrar. Tu propia partida nunca
+se tocó. MSCLoader no es parte de SummerSync: se desinstala como indique
+MSCLoader.

@@ -1,0 +1,13 @@
+{
+  "format": 1,
+  "name": "teimobike",
+  "root": "STORE",
+  "path": "TeimoInBike",
+  "moves": "transform",
+  "off": ["::Move"],
+  "shown": ["Bicycle/Functions"],
+  "mirror": {
+    "fsm": "Move",
+    "states": ["At home", "New path", "New path 2", { "state": "At store", "enter": "State 2" }]
+  }
+}

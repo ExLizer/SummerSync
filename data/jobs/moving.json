@@ -1,0 +1,14 @@
+{
+  "format": 1,
+  "name": "moving",
+  "root": "JOBS",
+  "path": "HouseDrunk/Moving",
+  "values": [
+    { "path": "JokkeHiker1/Pivot/Char/skeleton/pelvis/spine_middle/spine_upper/collar_right/shoulder_right/arm_right/hand_right/PayMoney", "fsm": "Use", "variable": "Money", "kind": "said", "scale": 1 }
+  ],
+  "relay": [
+    { "fsm": "Data", "states": ["Move decision", "State 2", "Open door", "Moving done"] },
+    { "path": "JokkeHiker1/Pivot/Char/skeleton/pelvis/spine_middle/spine_upper/collar_right/shoulder_right/arm_right/hand_right/PayMoney", "fsm": "Use", "states": ["Anim"], "pays": "Money", "quiet": true }
+  ],
+  "loose": ["JOBS/HouseDrunk/Moving/Stuff", "JOBS/HouseDrunk/Moving/Stuff/DestroyThese"]
+}

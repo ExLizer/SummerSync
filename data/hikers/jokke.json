@@ -1,0 +1,26 @@
+{
+  "format": 1,
+  "name": "jokke",
+  "logic": { "path": "KILJUGUY/HikerPivot/JokkeHiker2", "fsm": "Logic" },
+  "walker": "KILJUGUY/HikerPivot",
+  "body": "KILJUGUY/HikerPivot/JokkeHiker2/Char",
+  "paused": [
+    { "path": "KILJUGUY/HikerPivot", "fsm": "Move" },
+    { "path": "KILJUGUY/HikerPivot", "fsm": "Obstacle" },
+    { "path": "KILJUGUY/HikerPivot", "fsm": "Raycast" },
+    { "path": "KILJUGUY/HikerPivot/JokkeHiker2", "fsm": "Timer" }
+  ],
+  "appears": "Activate",
+  "appearsFrom": ["START", "State 5", "Call or no", "Call player", "Wait reset", "State 3"],
+  "aboard": "Open door",
+  "off": "Start walking",
+  "dies": "State 9",
+  "pivot": "GetInPivot",
+  "passengerMass": "PassengerMassObject",
+  "getIn": [
+    { "vehicle": "HAYOSIKO(1500kg, 250)", "clip": "fat_get_van_in" },
+    { "clip": "fat_get_car_in" }
+  ],
+  "keep": { "path": "KILJUGUY/HikerPivot/JokkeHiker2", "fsm": "Logic", "variable": "DrunkStage" },
+  "hit": { "path": "KILJUGUY/HikerPivot/JokkeHiker2/Char/HumanTriggerCrime", "fsm": "CarHit" }
+}

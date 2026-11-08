@@ -1,0 +1,14 @@
+{
+  "format": 1,
+  "name": "shit4",
+  "root": "JOBS",
+  "path": "HouseShit4",
+  "pause": [{ "path": "WasteWell_2000litre/Shit/Level4/ShitLevelTrigger", "fsm": "Level" }],
+  "values": [
+    { "path": "WasteWell_2000litre/Shit/Level4/ShitLevelTrigger", "fsm": "Level", "variable": "ShitLevel", "kind": "amount", "scale": 1000 },
+    { "path": "WasteWell_2000litre/Shit/Level4/ShitLevelTrigger", "fsm": "Level", "variable": "Called", "kind": "said" },
+    { "path": "LOD/ShitNPC/ShitMan4", "fsm": "Anims", "variable": "Money", "kind": "said" }
+  ],
+  "positions": ["WasteWell_2000litre/Shit/Level4"],
+  "loose": ["JOBS/HouseShit4/WasteWell_2000litre"]
+}

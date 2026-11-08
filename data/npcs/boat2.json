@@ -1,0 +1,10 @@
+{
+  "format": 1,
+  "name": "boat2",
+  "root": "TRAFFIC",
+  "path": "Lake/AIboat2",
+  "moves": "body",
+  "off": ["Simulation", "Throttle", "Steering", "ThrottleSteer", "Steer", "Rise Front", "Y Velocity"],
+  "offElsewhere": [{ "path": "TRAFFIC/Lake", "fsm": "Activate" }],
+  "rpm": { "path": "LOD/Audio", "fsm": "Sound Engine", "variable": "RPM" }
+}

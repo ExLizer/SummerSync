@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Standalone MSCLoader mod that dumps PlayMaker FSMs, ArrayMaker collections, rigidbodies and vehicles to
+    JSON. It is independent from the multiplayer mod so it can run in an unmodified single player game, and it
+    only reads: it never forces the game to load or initialise anything.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net35</TargetFramework>
+    <AssemblyName>SummerSyncDumper</AssemblyName>
+    <RootNamespace>SummerSync.Dumper</RootNamespace>
+    <!-- The game's Mono runtime cannot read portable PDBs. -->
+    <DebugType>none</DebugType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\SummerSync.Core\**\*.cs" Exclude="..\SummerSync.Core\bin\**;..\SummerSync.Core\obj\**" LinkBase="Core" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- MSCLoader reads the assembly GUID to identify the mod file. -->
+    <AssemblyAttribute Include="System.Runtime.InteropServices.GuidAttribute">
+      <_Parameter1>54d76b8a-208e-4ab6-a5b2-5c0a5616d387</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+  <Import Project="..\..\build\GameReferences.targets" />
+
+</Project>

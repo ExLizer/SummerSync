@@ -1,0 +1,68 @@
+{
+  "format": 2,
+  "nick": "kekmet",
+  "rootName": "KEKMET(350-400psi)",
+  "driveTriggerPath": "LOD/PlayerTrigger/DriveTrigger",
+  "driveMachineName": "PlayerTrigger",
+  "interior": {
+    "centre": [
+      0,
+      1.16,
+      -0.62
+    ],
+    "halfSize": [
+      0.37,
+      0.8,
+      0.75
+    ]
+  },
+  "exitMargin": 0.25,
+  "lights": {
+    "switchPath": "LOD/Dashboard/Lights",
+    "switchMachine": "Use"
+  },
+  "engine": {
+    "starterPath": "Simulation/Starter",
+    "starterMachine": "Starter",
+    "ignitionPath": "LOD/Dashboard/Ignition",
+    "ignitionMachine": "Use",
+    "detailPath": "LOD"
+  },
+  "knobs": [
+    { "name": "wipers", "path": "LOD/Dashboard/ButtonWipers", "machine": "Use", "variable": "Selection", "states": ["Off", "Fast"] },
+    { "name": "interior light", "path": "LOD/InteriorLight/Use", "machine": "Use", "variable": "LightON", "states": ["State 3", "State 1"] },
+    { "name": "radio volume", "path": "RadioPivot/Radio/ButtonsRadio/RadioVolume", "machine": "Knob", "variable": "Volume", "step": 0.1, "steps": 10, "states": ["Off", "Check tune"] },
+    { "name": "radio tuner", "path": "RadioPivot/Radio/TunerPivot/RadioTuner", "machine": "Knob", "variable": "Tune", "from": 0.05, "step": 0.001, "steps": 60, "states": ["Wait1"] },
+    { "name": "parking brake", "path": "Dashboard/ParkingBrake", "machine": "Use", "variable": "Brake", "states": ["Anim OFF", "Anim ON"] },
+    { "name": "hand throttle", "path": "LOD/Dashboard/Throttle", "machine": "Use", "variable": "LeverPos", "step": 1, "steps": 70,
+      "copies": [ { "machine": "Throttle", "variable": "Throttle", "times": 0.00666667 } ],
+      "moves": { "path": "LOD/Dashboard/Throttle/Pivot", "what": "rotation", "axis": "x" } },
+    { "name": "differential lock", "path": "LOD/Dashboard/DiffLock", "machine": "Use", "variable": "DiffLock", "toggles": true, "states": ["Flip", "Flip"] },
+    { "name": "range", "path": "LOD/Dashboard/Range", "machine": "Use", "variable": "Range", "toggles": true, "states": ["Flip", "Flip"] },
+    { "name": "rear hydraulics", "path": "LOD/Dashboard/RearHyd", "machine": "Use", "variable": "Stage", "states": ["State 3", "State 3", "State 3"] }
+  ],
+  "hydraulics": [
+    { "name": "loader", "path": "Dashboard/NewHydraulics/FrontHydLoader", "machine": "Use", "variable": "ArmRot", "min": 240, "max": 320,
+      "rest": ["Wait player", "Wait button"], "up": "INCREASE", "down": "DECREASE", "sound": "State 1",
+      "moves": { "path": "Frontloader/ArmPivot/Arm/LoaderPivot/Loader", "what": "rotation", "axis": "y" },
+      "lever": { "path": "Dashboard/NewHydraulics/FrontHydLoader/Lever", "axis": "x", "up": 8, "down": -8 } },
+    { "name": "arm", "path": "Dashboard/NewHydraulics/FrontHydArm", "machine": "Use", "variable": "ArmRot", "min": -80, "max": 5,
+      "rest": ["Wait player 2", "Wait button 2"], "up": "INCREASE 2", "down": "DECREASE 2", "sound": "State 1",
+      "moves": { "path": "Frontloader/ArmPivot/Arm", "what": "rotation", "axis": "y" },
+      "lever": { "path": "Dashboard/NewHydraulics/FrontHydArm/Lever", "axis": "x", "up": 8, "down": -8 } }
+  ],
+  "hitches": [
+    { "towed": "FLATBED", "towedPoint": "HookTarget", "path": "Trailer/Hook", "machine": "Distance", "variable": "TrailerAttached", "attach": "Sound",
+      "release": { "path": "Trailer/Remove", "machine": "Use", "state": "Close door" } }
+  ],
+  "crash": { "head": 800, "helmet": 1100 },
+  "driver": {
+    "pedals": [
+      { "input": "clutch", "path": "LOD/Dashboard/Clutch/Pivot", "axis": "y", "degrees": 30 },
+      { "input": "brake", "path": "LOD/Dashboard/Brake/Pivot", "axis": "y", "degrees": 25 },
+      { "input": "throttle", "path": "LOD/Dashboard/ThrottleFoot/Pivot", "axis": "y", "degrees": -23 }
+    ],
+    "levers": ["LOD/Dashboard/Gear/Lever"],
+    "seat": [0, 0.95, -0.94, 0.8]
+  }
+}

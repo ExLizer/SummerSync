@@ -1,0 +1,14 @@
+{
+  "format": 1,
+  "name": "battery-charger",
+  "part": "battery(Clone)",
+  "onto": "/YARD/Building/Garage/BatteryCharger/Clamps",
+  "mount": {
+    "path": "/YARD/Building/Garage/BatteryCharger/TriggerCharger",
+    "fsm": "Assembly",
+    "variable": "Battery",
+    "event": "PLACEBATT",
+    "within": 0.5
+  },
+  "unmount": { "path": "/YARD/Building/Garage/BatteryCharger/TriggerCharger", "fsm": "Assembly", "state": "Remove battery" }
+}

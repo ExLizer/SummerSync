@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Pure logic with no Unity dependency. net35 is what ships inside the game (its sources are compiled
+    into the mod assemblies); net10.0 exists so the same code can be unit tested.
+  -->
+  <PropertyGroup>
+    <TargetFrameworks>net35;net10.0</TargetFrameworks>
+    <RootNamespace>SummerSync.Core</RootNamespace>
+    <AssemblyName>SummerSync.Core</AssemblyName>
+  </PropertyGroup>
+
+</Project>

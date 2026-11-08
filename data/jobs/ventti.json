@@ -1,0 +1,11 @@
+{
+  "format": 1,
+  "name": "ventti",
+  "root": "CABIN",
+  "path": "Cabin/Ventti/Table",
+  "values": [
+    { "path": "GameManager", "fsm": "Use", "variable": "BetStage", "kind": "said" },
+    { "path": "GameManager", "fsm": "Use", "variable": "OpponentLoss", "kind": "said", "scale": 1 },
+    { "path": "GAME/Gamestuff/Bet", "fsm": "Use", "variable": "BetMax", "kind": "said", "scale": 1 }
+  ]
+}

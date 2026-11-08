@@ -1,0 +1,57 @@
+{
+  "format": 2,
+  "nick": "van",
+  "rootName": "HAYOSIKO(1500kg, 250)",
+  "driveTriggerPath": "LOD/PlayerTrigger/DriveTrigger",
+  "driveMachineName": "PlayerTrigger",
+  "keyVariable": "PlayerKeyHayosiko",
+  "interior": {
+    "centre": [
+      0,
+      0.95,
+      -0.15
+    ],
+    "halfSize": [
+      0.62,
+      0.62,
+      1.95
+    ]
+  },
+  "exitMargin": 0.25,
+  "lights": {
+    "switchPath": "LOD/Dashboard/Knobs/Lights",
+    "switchMachine": "Use",
+    "powerPath": "LOD/Electricity/PowerON"
+  },
+  "engine": {
+    "starterPath": "Starter",
+    "starterMachine": "Starter",
+    "ignitionPath": "LOD/Dashboard/Knobs/Ignition",
+    "ignitionMachine": "Use",
+    "detailPath": "LOD"
+  },
+  "knobs": [
+    { "name": "wipers", "path": "LOD/Dashboard/Knobs/ButtonWipers", "machine": "Use", "variable": "Selection", "states": ["Off", "Slow", "Fast"] },
+    { "name": "interior light", "path": "LOD/InteriorLight/Use", "machine": "Use", "variable": "LightON", "states": ["State 3", "State 1"] },
+    { "name": "radio volume", "path": "RadioPivot/Radio/ButtonsRadio/RadioVolume", "machine": "Knob", "variable": "Volume", "step": 0.1, "steps": 10, "states": ["Off", "Check tune"] },
+    { "name": "radio tuner", "path": "RadioPivot/Radio/TunerPivot/RadioTuner", "machine": "Knob", "variable": "Tune", "from": 0.05, "step": 0.001, "steps": 60, "states": ["Wait1"] },
+    { "name": "parking brake", "path": "LOD/Dashboard/ParkingBrake", "machine": "Use", "variable": "KnobPos", "step": 0.01, "steps": 10 },
+    { "name": "windscreen", "path": "LOD/Windshield", "machine": "Data", "variable": "Damaged", "states": ["State 1", "Break glass"] },
+    { "name": "turn signals", "path": "LOD/Dashboard/TurnSignals", "machine": "Usage", "by": "simulator", "states": ["State 3", "Activate dash", "Activate dash 2"],
+      "during": [["Check player", "State 2", "Check steering", "State 3"], ["Activate dash", "On", "Off"], ["Activate dash 2", "On 2", "Off 2"]] }
+  ],
+  "horn": { "path": "LOD/Dashboard/ButtonHorn/CarHorn", "buttons": [ { "path": "LOD/Dashboard/ButtonHorn", "machine": "Use", "pressed": "State 1" } ] },
+  "seats": [
+    { "name": "front", "player": [0.35, 0.76, 0.91], "belt": "handle", "beltPath": "LOD/seatbelts" }
+  ],
+  "crash": { "head": 300, "belt": 200, "helmetTimes": 1.5 },
+  "driver": {
+    "pedals": [
+      { "input": "clutch", "path": "LOD/Dashboard/Pedals 1/clutch", "axis": "x", "degrees": 9 },
+      { "input": "brake", "path": "LOD/Dashboard/Pedals 1/brake", "axis": "x", "degrees": 9 },
+      { "input": "throttle", "path": "LOD/Dashboard/Pedals 1/throttle", "axis": "x", "degrees": 8 }
+    ],
+    "levers": ["LOD/Dashboard/GearShifter/lever"],
+    "seat": [-0.34, 0.51, 0.91, 0.9]
+  }
+}

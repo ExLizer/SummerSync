@@ -1,0 +1,35 @@
+{
+  "format": 2,
+  "nick": "jonnez",
+  "rootName": "JONNEZ ES(Clone)",
+  "driveTriggerPath": "LOD/PlayerTrigger/DriveTrigger",
+  "driveMachineName": "PlayerTrigger",
+  "lights": {
+    "switchPath": "LOD/Dashboard/Lights",
+    "switchMachine": "Use",
+    "powerPath": "LOD/Suspension/Steering/SteeringPivot/Headlight/Electricity/PowerON"
+  },
+  "engine": {
+    "starterPath": "Starter",
+    "starterMachine": "Starter",
+    "detailPath": "LOD"
+  },
+  "knobs": [
+    { "name": "fuel tap", "path": "LOD/Dashboard/FuelTap", "machine": "Use", "variable": "FuelTapState", "states": ["On", "Off", "Res"] },
+    { "name": "kickstand", "path": "Kickstand", "machine": "Use", "variable": "StandOn", "states": ["Stand off", "Stand on"] }
+  ],
+  "seats": [
+    { "name": "back", "player": [0, 0.46, -0.45], "reach": 0.8 }
+  ],
+  "crash": { "head": 800, "helmet": 1100 },
+  "driver": {
+    "grips": ["LOD/Suspension/Steering/SteeringPivot/Clutch", "LOD/Suspension/Steering/SteeringPivot/Throttle"],
+    "pedals": [
+      { "input": "clutch", "path": "LOD/Suspension/Steering/SteeringPivot/Clutch", "axis": "z", "degrees": -20 },
+      { "input": "brake", "path": "LOD/Suspension/Steering/SteeringPivot/Brake", "axis": "z", "degrees": 20 },
+      { "input": "throttle", "path": "LOD/Suspension/Steering/SteeringPivot/Throttle", "axis": "x", "degrees": -100 }
+    ],
+    "levers": [],
+    "seat": [0, -0.01, -0.13, 0.85]
+  }
+}

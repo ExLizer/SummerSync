@@ -1,0 +1,65 @@
+{
+  "format": 2,
+  "nick": "gifu",
+  "rootName": "GIFU(750/450psi)",
+  "driveTriggerPath": "LOD/PlayerTrigger/DriveTrigger",
+  "driveMachineName": "PlayerTrigger",
+  "keyVariable": "PlayerKeyGifu",
+  "interior": {
+    "centre": [
+      0,
+      1.77,
+      2.71
+    ],
+    "halfSize": [
+      0.88,
+      0.7,
+      0.85
+    ]
+  },
+  "exitMargin": 0.25,
+  "lights": {
+    "switchPath": "LOD/Dashboard/ButtonLights",
+    "switchMachine": "Use",
+    "powerPath": "LOD/Electricity/PowerON"
+  },
+  "engine": {
+    "starterPath": "Simulation/Starter",
+    "starterMachine": "Starter",
+    "ignitionPath": "LOD/Dashboard/Ignition",
+    "ignitionMachine": "Use",
+    "detailPath": "LOD"
+  },
+  "knobs": [
+    { "name": "wipers", "path": "LOD/Dashboard/ButtonWipers", "machine": "Use", "variable": "Selection", "states": ["Off", "Slow", "Fast"] },
+    { "name": "interior light", "path": "LOD/Dashboard/ButtonInteriorLight", "machine": "Use", "variable": "On", "states": ["Off", "On"] },
+    { "name": "beacon", "path": "Dashboard/Knobs/KnobBeacon", "machine": "Use", "variable": "On", "states": ["OFF", "ON"] },
+    { "name": "work lights", "path": "Dashboard/Knobs/KnobWorkLights", "machine": "Use", "variable": "On", "states": ["OFF", "ON"] },
+    { "name": "radio volume", "path": "RadioPivot/Radio/ButtonsRadio/RadioVolume", "machine": "Knob", "variable": "Volume", "step": 0.1, "steps": 10, "states": ["Off", "Check tune"] },
+    { "name": "radio tuner", "path": "RadioPivot/Radio/TunerPivot/RadioTuner", "machine": "Knob", "variable": "Tune", "from": 0.05, "step": 0.001, "steps": 60, "states": ["Wait1"] },
+    { "name": "parking brake", "path": "Dashboard/Knobs/Parking Brake", "machine": "Use", "variable": "Brake", "states": ["Anim OFF", "Anim ON"] },
+    { "name": "hand throttle", "path": "LOD/Dashboard/ButtonHandThrottle", "machine": "Use", "variable": "LeverPos", "from": 0.008, "step": 0.0005, "steps": 44,
+      "copies": [ { "machine": "Throttle", "variable": "Throttle", "times": 14.8, "min": 0.13, "max": 1 } ],
+      "moves": { "path": "LOD/Dashboard/KnobHandThrottle/Knob", "what": "position", "axis": "y" } },
+    { "name": "differential lock", "path": "Dashboard/Knobs/Differential lock", "machine": "Use", "variable": "Lock", "states": ["Set down", "Set up"] },
+    { "name": "lift axle", "path": "Dashboard/Knobs/Liftaxle", "machine": "Use", "variable": "Up", "states": ["Set down", "Set up"] },
+    { "name": "range", "path": "Simulation/Transmission", "machine": "Change", "variable": "LowGears", "states": ["High", "Low"] },    { "name": "left windscreen", "path": "LOD/WindshieldLeft", "machine": "Data", "variable": "Damaged", "states": ["State 1", "Break glass"] },
+    { "name": "right windscreen", "path": "LOD/WindshieldRight", "machine": "Data", "variable": "Damaged", "states": ["State 1", "Break glass"] },
+    { "name": "turn signals", "path": "LOD/Dashboard/TurnSignals", "machine": "Usage", "by": "simulator", "states": ["State 3", "Activate dash", "Activate dash 2"],
+      "during": [["Check player", "State 2", "Check steering", "State 3"], ["Activate dash", "On", "Off"], ["Activate dash 2", "On 2", "Off 2"]] }
+  ],
+  "horn": { "path": "LOD/Dashboard/ButtonHorn/CarHorn", "buttons": [ { "path": "LOD/Dashboard/ButtonHorn", "machine": "Use", "pressed": "State 1" } ] },
+  "seats": [
+    { "name": "front", "player": [0.7, 1.67, 2.84], "belt": "handle", "beltPath": "LOD/Seatbelts" }
+  ],
+  "crash": { "head": 500, "belt": 200, "helmetTimes": 1.5 },
+  "driver": {
+    "pedals": [
+      { "input": "clutch", "path": "LOD/Dashboard/Pedals/Clutch", "axis": "x", "degrees": 12 },
+      { "input": "brake", "path": "LOD/Dashboard/Pedals/Brake", "axis": "x", "degrees": -19 },
+      { "input": "throttle", "path": "LOD/Dashboard/Pedals/Throttle", "axis": "x", "degrees": -19 }
+    ],
+    "levers": ["LOD/Dashboard/GearLever/Pivot/Lever"],
+    "seat": [-0.7, 1.41, 2.8, 0.9]
+  }
+}

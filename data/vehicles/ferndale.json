@@ -1,0 +1,58 @@
+{
+  "format": 2,
+  "nick": "ferndale",
+  "rootName": "FERNDALE(1630kg)",
+  "driveTriggerPath": "LOD/PlayerTrigger/DriveTrigger",
+  "driveMachineName": "PlayerTrigger",
+  "keyVariable": "PlayerKeyFerndale",
+  "interior": {
+    "centre": [
+      0,
+      0.54,
+      -0.64
+    ],
+    "halfSize": [
+      0.66,
+      0.6,
+      1.1
+    ]
+  },
+  "exitMargin": 0.25,
+  "lights": {
+    "switchPath": "LOD/Dashboard/Knobs/Lights",
+    "switchMachine": "Use",
+    "powerPath": "LOD/Electricity/PowerON"
+  },
+  "engine": {
+    "starterPath": "Starter",
+    "starterMachine": "Starter",
+    "ignitionPath": "LOD/Dashboard/Knobs/Ignition",
+    "ignitionMachine": "Use",
+    "detailPath": "LOD"
+  },
+  "knobs": [
+    { "name": "wipers", "path": "LOD/Dashboard/Knobs/ButtonWipers", "machine": "Use", "variable": "Selection", "states": ["Off", "Slow", "Fast"] },
+    { "name": "interior light", "path": "LOD/InteriorLight/Use", "machine": "Use", "variable": "LightON", "states": ["State 3", "State 1"] },
+    { "name": "radio volume", "path": "RadioPivot/Radio/ButtonsRadio/RadioVolume", "machine": "Knob", "variable": "Volume", "step": 0.1, "steps": 10, "states": ["Off", "Check tune"] },
+    { "name": "radio tuner", "path": "RadioPivot/Radio/TunerPivot/RadioTuner", "machine": "Knob", "variable": "Tune", "from": 0.05, "step": 0.001, "steps": 60, "states": ["Wait1"] },
+    { "name": "parking brake", "path": "LOD/Dashboard/ParkingBrake", "machine": "Use", "variable": "KnobPos", "step": 0.01, "steps": 10 },
+    { "name": "windscreen", "path": "Windshield", "machine": "Data", "variable": "Damaged", "states": ["Assemble", "Break glass"] },
+    { "name": "turn signals", "path": "LOD/Dashboard/TurnSignals", "machine": "Usage", "by": "simulator", "states": ["State 3", "Activate dash", "Activate dash 2"],
+      "during": [["Check player", "State 2", "Check steering", "State 3"], ["Activate dash", "On", "Off"], ["Activate dash 2", "On 2", "Off 2"]] }
+  ],
+  "horn": { "path": "LOD/Dashboard/Knobs/ButtonHorn/CarHorn", "buttons": [ { "path": "LOD/Dashboard/Knobs/ButtonHorn", "machine": "Use", "pressed": "State 1" } ] },
+  "seats": [
+    { "name": "front", "player": [0.39, 0.37, -0.12], "belt": "buckle", "beltPath": "LOD/Seatbelts" },
+    { "name": "rear left", "player": [-0.39, 0.37, -0.92] },
+    { "name": "rear right", "player": [0.39, 0.37, -0.92] }
+  ],
+  "crash": { "head": 450, "belt": 250, "helmetTimes": 1.5 },
+  "driver": {
+    "pedals": [
+      { "input": "brake", "path": "LOD/Dashboard/Pedals 2/brake", "axis": "x", "degrees": 9 },
+      { "input": "throttle", "path": "LOD/Dashboard/Pedals 2/throttle", "axis": "x", "degrees": -8 }
+    ],
+    "levers": [],
+    "seat": [-0.37, 0.12, -0.11, 0.9]
+  }
+}

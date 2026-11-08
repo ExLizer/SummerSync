@@ -1,0 +1,14 @@
+{
+  "format": 1,
+  "name": "keys",
+  "root": "Database",
+  "path": "Keys",
+  "values": [
+    { "global": "PlayerKeyHome", "kind": "said" },
+    { "global": "PlayerKeySatsuma", "kind": "said" },
+    { "global": "PlayerKeyHayosiko", "kind": "said" },
+    { "global": "PlayerKeyGifu", "kind": "said" },
+    { "global": "PlayerKeyFerndale", "kind": "said" },
+    { "global": "PlayerKeyRuscko", "kind": "said" }
+  ]
+}

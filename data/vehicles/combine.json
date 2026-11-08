@@ -1,0 +1,44 @@
+{
+  "format": 2,
+  "nick": "combine",
+  "rootName": "COMBINE(350-400psi)",
+  "driveTriggerPath": "LOD/PlayerTrigger/DriveTrigger",
+  "driveMachineName": "PlayerTrigger",
+  "interior": {
+    "centre": [
+      0,
+      1.75,
+      1.15
+    ],
+    "halfSize": [
+      0.55,
+      0.8,
+      0.6
+    ]
+  },
+  "exitMargin": 0.25,
+  "engine": {
+    "starterPath": "Simulation/Starter",
+    "starterMachine": "Starter",
+    "ignitionPath": "LOD/Dashboard/Ignition",
+    "ignitionMachine": "Use",
+    "detailPath": "LOD"
+  },
+  "knobs": [
+    { "name": "start lever", "path": "LOD/Dashboard/LeverStartStop", "machine": "Use", "variable": "EngineON", "states": ["Off", "On"] },
+    { "name": "lights", "path": "LOD/Dashboard/ButtonLights", "machine": "Use", "variable": "LightsOn", "states": ["Off", "Shorts"] },
+    { "name": "wipers", "path": "LOD/Dashboard/ButtonWipers", "machine": "Use", "variable": "Selection", "states": ["Off", "Fast"] },
+    { "name": "interior light", "path": "LOD/InteriorLight/Use", "machine": "Use", "variable": "LightON", "states": ["State 3", "State 1"] },
+    { "name": "parking brake", "path": "Dashboard/ParkingBrake", "machine": "Use", "variable": "Brake", "states": ["Off", "On"] }
+  ],
+  "crash": { "head": 400, "helmet": 600 },
+  "driver": {
+    "pedals": [
+      { "input": "clutch", "path": "LOD/Dashboard/Clutch/Pivot", "axis": "y", "degrees": 30 },
+      { "input": "brake", "path": "LOD/Dashboard/Brake/Pivot", "axis": "y", "degrees": 25 },
+      { "input": "throttle", "path": "LOD/Dashboard/Throttle/Pivot", "axis": "x", "degrees": 52 }
+    ],
+    "levers": ["LOD/Dashboard/Gear/Lever"],
+    "seat": [0.01, 1.37, 0.97, 0.8]
+  }
+}

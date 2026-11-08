@@ -1,0 +1,10 @@
+{
+  "format": 1,
+  "name": "wood1",
+  "root": "JOBS",
+  "path": "HouseWood1",
+  "relay": [
+    { "fsm": "Logic", "states": ["Activate order", "Player left?"] },
+    { "path": "LOD/NPC/Char/skeleton/pelvis/spine_middle/spine_upper/collar_right/shoulder_right/arm_right/hand_right/PayMoney", "fsm": "Use", "states": ["State 1"], "pays": "Money" }
+  ]
+}

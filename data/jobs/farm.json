@@ -1,0 +1,15 @@
+{
+  "format": 1,
+  "name": "farm",
+  "root": "JOBS",
+  "path": "Farm",
+  "values": [
+    { "path": "Job", "fsm": "Data", "variable": "JobStage", "kind": "said" },
+    { "path": "/HUMANS/Farmer/Walker/Char/skeleton/pelvis/spine_middle/spine_upper/collar_right/shoulder_right/arm_right/hand_right/PayMoney", "fsm": "Use", "variable": "Money", "kind": "said", "scale": 1 }
+  ],
+  "relay": [
+    { "path": "Job", "fsm": "Data", "states": ["Stage?", "Dart haybale", "Payment", "Dart combine", "Done", "Reset combine"] },
+    { "path": "/HUMANS/Farmer/Walker/Char/skeleton/pelvis/spine_middle/spine_upper/collar_right/shoulder_right/arm_right/hand_right/PayMoney", "fsm": "Use", "states": ["State 1"], "pays": "Money" }
+  ],
+  "loose": ["JOBS/HayBales"]
+}

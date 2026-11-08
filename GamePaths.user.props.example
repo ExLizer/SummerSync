@@ -1,0 +1,11 @@
+<Project>
+  <!--
+    Copy this file to GamePaths.user.props (ignored by git) and point it at your installation.
+    Game assemblies are referenced from here at build time; they are never copied into the repo.
+  -->
+  <PropertyGroup>
+    <GamePath>C:\Program Files (x86)\Steam\steamapps\common\My Summer Car</GamePath>
+    <!-- MSCLoader mods folder. Leave empty to use $(GamePath)\Mods ("Game Folder" install option). -->
+    <ModsPath></ModsPath>
+  </PropertyGroup>
+</Project>

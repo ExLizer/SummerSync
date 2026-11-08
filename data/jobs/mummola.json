@@ -1,0 +1,7 @@
+{
+  "format": 1,
+  "name": "mummola",
+  "root": "JOBS",
+  "path": "Mummola",
+  "relay": [{ "fsm": "Logic", "states": ["Fish", "Groceries", "State 2", "Church", "Reset", "Set death"] }]
+}

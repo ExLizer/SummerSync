@@ -1,0 +1,9 @@
+{
+  "format": 1,
+  "name": "train",
+  "root": "TRAIN",
+  "find": "TRAIN",
+  "moves": "transform",
+  "off": ["Move", "Reset"],
+  "shown": ["Mesh"]
+}

@@ -1,0 +1,51 @@
+{
+  "format": 2,
+  "nick": "ruscko",
+  "rootName": "RCO_RUSCKO12(270)",
+  "driveTriggerPath": "LOD/PlayerTrigger/DriveTrigger",
+  "driveMachineName": "PlayerTrigger",
+  "keyVariable": "PlayerKeyRuscko",
+  "interior": {
+    "centre": [
+      0,
+      0.47,
+      -0.76
+    ],
+    "halfSize": [
+      0.47,
+      0.5,
+      1.1
+    ]
+  },
+  "exitMargin": 0.25,
+  "lights": {
+    "switchPath": "LOD/Dashboard/Knobs/Lights",
+    "switchMachine": "Use",
+    "powerPath": "LOD/Electricity/PowerON"
+  },
+  "engine": {
+    "starterPath": "Starter",
+    "starterMachine": "Starter",
+    "ignitionPath": "LOD/Dashboard/Knobs/Ignition",
+    "ignitionMachine": "Use",
+    "detailPath": "LOD"
+  },
+  "knobs": [
+    { "name": "wipers", "path": "LOD/Dashboard/Knobs/ButtonWipers", "machine": "Use", "variable": "Selection", "states": ["Off", "Fast"] },
+    { "name": "parking brake", "path": "LOD/Dashboard/ParkingBrake", "machine": "Use", "variable": "KnobPos", "step": 0.01, "steps": 10 }
+  ],
+  "horn": { "path": "LOD/Dashboard/Knobs/ButtonHorn/CarHorn", "buttons": [ { "path": "LOD/Dashboard/Knobs/ButtonHorn", "machine": "Use", "pressed": "State 1" } ] },
+  "seats": [
+    { "name": "front", "player": [0.26, 0.2, -0.09] }
+  ],
+  "crash": { "head": 300, "helmet": 500 },
+  "driver": {
+    "pedals": [
+      { "input": "clutch", "path": "LOD/Dashboard/Pedals/clutch", "axis": "x", "degrees": -18 },
+      { "input": "brake", "path": "LOD/Dashboard/Pedals/brake", "axis": "x", "degrees": -12 },
+      { "input": "throttle", "path": "LOD/Dashboard/Pedals/throttle", "axis": "x", "degrees": -12 }
+    ],
+    "levers": ["LOD/Dashboard/GearLever/Vibration/Pivot"],
+    "seat": [-0.26, -0.05, -0.09, 0.9]
+  }
+}

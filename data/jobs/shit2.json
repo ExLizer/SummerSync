@@ -1,0 +1,14 @@
+{
+  "format": 1,
+  "name": "shit2",
+  "root": "JOBS",
+  "path": "HouseShit2",
+  "pause": [{ "path": "WasteWell_2000litre/Shit/Level2/ShitLevelTrigger", "fsm": "Level" }],
+  "values": [
+    { "path": "WasteWell_2000litre/Shit/Level2/ShitLevelTrigger", "fsm": "Level", "variable": "ShitLevel", "kind": "amount", "scale": 1000 },
+    { "path": "WasteWell_2000litre/Shit/Level2/ShitLevelTrigger", "fsm": "Level", "variable": "Called", "kind": "said" },
+    { "path": "LOD/ShitNPC/ShitMan2", "fsm": "Anims", "variable": "Money", "kind": "said" }
+  ],
+  "positions": ["WasteWell_2000litre/Shit/Level2"],
+  "loose": ["JOBS/HouseShit2/WasteWell_2000litre"]
+}
