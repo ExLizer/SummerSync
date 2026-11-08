@@ -34,11 +34,22 @@ namespace SummerSync.Unity.Objects
         private const string ContentsPrefix = "FluidTrigger:";
         private const string FluidPrefix = "Fluid";
 
-        // Numbers the game changes by itself, on every machine, all the time: not news.
-        private static readonly string[] Unshared = { "Condition", "Distance", "FridgeDistance", "SpoilingRate", "SpoilingRateFridge", "DestroyProgress" };
+        // Numbers the game changes by itself, on every machine, all the time: not news. Told as news, each game tells its
+        // own every second and writes the other's over it, and with them what a player changed: the kilju bucket brews in
+        // every game (its "Use" counts "Time", adds "Vinegar" with the lid off and works out the rest from them each loop;
+        // dump of 2026-10-15), and a lit lantern counts "Burning" up to a "Burntime" each game rolls, with "Pos" its height.
+        // The bucket's lid went back off in a game that had it on (log of 2026-11-08: "LidOn" from the other game's last
+        // brewing news). Of the coffee cup, "Pos" is its coffee over 3.75, worked out each frame.
+        private static readonly string[] Unshared =
+        {
+            "Condition", "Distance", "FridgeDistance", "SpoilingRate", "SpoilingRateFridge", "DestroyProgress",
+            "Time", "Vinegar", "Alcohol", "Sweetness", "SugarWaterRatio", "Math0", "Math1", "Math2",
+            "Burning", "Burntime", "Pos",
+        };
 
-        // Of those, what a world that joins takes from the host once, as it is there (food's spoiling).
-        private static readonly string[] Joining = { "Condition" };
+        // Of those, what a world that joins takes from the host once, as it is there (food's spoiling, how far the bucket
+        // has brewed).
+        private static readonly string[] Joining = { "Condition", "Time", "Vinegar", "Alcohol" };
 
         // Numbers the game also changes by itself, slowly, but a player too, fast: news only in whole units (a battery
         // loses 0.01 of its charge every 13 seconds in every game, seen on 2026-10-15, and gains it on the charger).

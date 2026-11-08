@@ -1293,6 +1293,59 @@ namespace SummerSync.Core.Objects
             }
         }
 
+        /// <summary>
+        /// The local game put the object somewhere by itself, at <paramref name="pose"/> (the repair shop's till puts a part
+        /// that was paid for on its bench): this machine simulates it from there, as if its player had picked it up and put
+        /// it down there at once. The others show it where it is put; on a client it goes back to the host like anything
+        /// put down. Nothing changes if someone holds it.
+        /// </summary>
+        public void Place(SharedBody body, BodyPose pose)
+        {
+            if (body == null || !body.HasId || body == held || pose.Parent != 0)
+            {
+                return;
+            }
+
+            if (IsHost)
+            {
+                if (body.Owner != Protocol.HostPlayerId)
+                {
+                    if (body.Held)
+                    {
+                        return;
+                    }
+
+                    TakeOver(body, pose, default(BodyMotion));
+                    BroadcastOwner(body);
+                    log.Info(LogCategory.Authority, prefix + "Object " + body.Id + " '" + body.Name + "' was put somewhere by this game: simulated here from there.");
+                }
+
+                return;
+            }
+
+            if (body.Role == BodyRole.Follow && body.Held)
+            {
+                // In someone's hand: theirs.
+                return;
+            }
+
+            if (body.Owner != session.LocalPlayerId)
+            {
+                body.PendingClaim = true;
+                body.Role = BodyRole.Simulate;
+                body.Buffer = null;
+                log.Info(LogCategory.Authority, prefix + "Object " + body.Id + " '" + body.Name + "' was put somewhere by this game: asked for, and simulated here from there.");
+            }
+
+            // Picked up and put down at once: the host gives it, or answers whose it is.
+            body.Held = false;
+            body.HandBackSoon = false;
+            body.DroppedAt = clock;
+            body.LocalPose = pose;
+            SendClaim(body.Id, ObjectWire.ClaimInHand);
+            SendClaim(body.Id, ObjectWire.ClaimLetGo);
+        }
+
         // Where the object is in the world, for everything that is not the stream of states.
         private static BodyPose WorldPose(SharedBody body)
         {

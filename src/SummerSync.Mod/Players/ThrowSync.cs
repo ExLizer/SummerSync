@@ -25,6 +25,8 @@ namespace SummerSync.Unity.Players
     /// A moment after a throw here, once it has its name and its speed, the others are told; there, the same
     /// prefab is made where it is, with that speed and that name, and without its state machine, which would push
     /// it the way the player of that machine looks. The loose objects' replication pairs the two by name.
+    ///
+    /// The same way, with their machines on, what the fires cook and the rockets taken out of the fireworks bag.
     /// </summary>
     internal sealed class ThrowSync
     {
@@ -43,6 +45,19 @@ namespace SummerSync.Unity.Players
         private const string CookMachine = "Logic";
         private const double SearchInterval = 2.0;
 
+        // The fireworks bag (dump of 2026-10-15, "MISC/fireworks bag(itemx) :: Open"): a click takes a rocket out of it,
+        // "Play anim" makes one from the prefab "rocket" ("CreateObject" at its "SpawnBag", into its variable "Rocket") and
+        // gives the rocket's machine "Explosion" the bag ("Bag"). The bag is there only from October to January
+        // ("Database/DatabaseOrders/FireworksBag :: Data" switches it on by the month and destroys it otherwise), so it is
+        // looked for a few times after the world loads. The rocket keeps its machines here and in the others: they light it,
+        // fly it and blow it up (FireworksSync shares the lighting).
+        private const string FireworksRoot = "MISC";
+        private const string FireworksBag = "fireworks bag(itemx)";
+        private const string FireworksMachine = "Open";
+        private const string RocketMachine = "Explosion";
+        private const string RocketBagVariable = "Bag";
+        private const int BagLooks = 15;
+
         // A thrown thing has its name and speed after its first frame; told then, or after this long at most.
         private const double TellAfter = 0.1;
         private const double TellAtMost = 0.6;
@@ -59,6 +74,8 @@ namespace SummerSync.Unity.Players
         private double nextSearch;
         private bool found;
         private bool searchReported;
+        private int bagLooks;
+        private bool bagFound;
 
         public ThrowSync(Logger log, NetworkManager manager, ObjectPresenter objects)
         {
@@ -94,6 +111,8 @@ namespace SummerSync.Unity.Players
                 missingReported.Clear();
                 found = false;
                 searchReported = false;
+                bagLooks = 0;
+                bagFound = false;
                 nextSearch = now;
             }
 
@@ -102,10 +121,18 @@ namespace SummerSync.Unity.Players
                 return;
             }
 
-            if (!found && now >= nextSearch)
+            if ((!found || (!bagFound && bagLooks < BagLooks)) && now >= nextSearch)
             {
                 nextSearch = now + SearchInterval;
-                Search();
+                if (!found)
+                {
+                    Search();
+                }
+
+                if (found && !bagFound && bagLooks < BagLooks)
+                {
+                    SearchBag();
+                }
             }
 
             if (!found)
@@ -172,6 +199,34 @@ namespace SummerSync.Unity.Players
                 searchReported = true;
                 log.Warning(LogCategory.Player, "The player's drinking was not found as this build expects it ('PLAYER/" + DrinkPath + "', state machine '" + DrinkMachine + "' making things): what a player throws away after a drink is seen only by them.");
             }
+        }
+
+        // The fireworks bag, if this world has one (see FireworksBag).
+        private void SearchBag()
+        {
+            bagLooks++;
+            GameObject root = GameObject.Find("/" + FireworksRoot);
+            Transform bag = root == null ? null : root.transform.Find(FireworksBag);
+            PlayMakerFSM open = bag == null ? null : DoorSync.FindMachine(bag, FireworksMachine);
+            if (open == null)
+            {
+                if (bagLooks == BagLooks)
+                {
+                    log.Info(LogCategory.Player, "This world has no fireworks bag (it is there from October to January).");
+                }
+
+                return;
+            }
+
+            int before = throwers.Count;
+            AddThrowers(open, false);
+            for (int i = before; i < throwers.Count; i++)
+            {
+                throwers[i].Bag = bag.gameObject;
+            }
+
+            bagFound = true;
+            log.Info(LogCategory.Player, "The rockets taken out of the fireworks bag are shared (" + (throwers.Count - before) + " maker(s) in its machine '" + FireworksMachine + "').");
         }
 
         // The things a state machine makes with "CreateObject"; thrown ones are made elsewhere with their machines off.
@@ -243,7 +298,10 @@ namespace SummerSync.Unity.Players
                     Motion = new BodyMotion { VX = velocity.x, VY = velocity.y, VZ = velocity.z, AX = spin.x, AY = spin.y, AZ = spin.z },
                 });
                 objects.ScanSoon(now);
-                log.Info(LogCategory.Player, "The player threw away '" + next.Made.name + "' (" + next.From.Prefab.name + ") at " + Where(transform.position) + ", " + velocity.magnitude.ToString("0.0", CultureInfo.InvariantCulture) + " m/s; the others are told.");
+                log.Info(
+                    LogCategory.Player,
+                    (next.From.Thrown ? "The player threw away '" : "This game made '") + next.Made.name + "' (" + next.From.Prefab.name + ") at " + Where(transform.position) + ", "
+                    + velocity.magnitude.ToString("0.0", CultureInfo.InvariantCulture) + " m/s; the others are told.");
             }
         }
 
@@ -256,6 +314,7 @@ namespace SummerSync.Unity.Players
         private void Make(ThrownItem thrown, double now)
         {
             GameObject prefab = null;
+            GameObject bag = null;
             bool machinesOff = true;
             for (int i = 0; i < throwers.Count; i++)
             {
@@ -263,6 +322,7 @@ namespace SummerSync.Unity.Players
                 {
                     prefab = throwers[i].Prefab;
                     machinesOff = throwers[i].Thrown;
+                    bag = throwers[i].Bag;
                     break;
                 }
             }
@@ -293,6 +353,14 @@ namespace SummerSync.Unity.Players
                 made.name = thrown.Name;
             }
 
+            // A rocket knows the bag it came out of, as the bag's machine tells it after making it.
+            PlayMakerFSM rocket = bag == null ? null : DoorSync.FindMachine(made.transform, RocketMachine);
+            FsmGameObject rocketBag = rocket == null ? null : rocket.FsmVariables.FindFsmGameObject(RocketBagVariable);
+            if (rocketBag != null)
+            {
+                rocketBag.Value = bag;
+            }
+
             Rigidbody body = made.GetComponent<Rigidbody>();
             if (body != null)
             {
@@ -302,7 +370,11 @@ namespace SummerSync.Unity.Players
 
             objects.Expect(made, thrown.Player, now);
             objects.ScanSoon(now);
-            log.Info(LogCategory.Player, "Player " + thrown.Player + " threw away '" + made.name + "' (" + thrown.Prefab + "); thrown here too, from " + Where(position) + ".");
+            log.Info(
+                LogCategory.Player,
+                machinesOff
+                    ? "Player " + thrown.Player + " threw away '" + made.name + "' (" + thrown.Prefab + "); thrown here too, from " + Where(position) + "."
+                    : "Player " + thrown.Player + "'s game made '" + made.name + "' (" + thrown.Prefab + "); made here too, at " + Where(position) + ".");
         }
 
         private static string Where(Vector3 position)
@@ -319,6 +391,9 @@ namespace SummerSync.Unity.Players
 
             // Thrown by the player's drinking: made elsewhere with its state machines off.
             public bool Thrown;
+
+            // The fireworks bag, for the rockets it makes; null for the rest.
+            public GameObject Bag;
         }
 
         private struct Pending

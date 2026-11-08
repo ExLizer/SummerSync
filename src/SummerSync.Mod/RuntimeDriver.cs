@@ -96,6 +96,8 @@ namespace SummerSync.Unity
         private bool toolsFailed;
         private MountSync mountsSync;
         private bool mountsFailed;
+        private FireworksSync fireworks;
+        private bool fireworksFailed;
         private ElectricitySync electricity;
         private bool electricityFailed;
         private MailboxSync mailboxes;
@@ -638,6 +640,7 @@ namespace SummerSync.Unity
             carParts = new PartSync(ModRuntime.Log, ModRuntime.Network.Manager, objects, vehicles);
             tools = new ToolSync(ModRuntime.Log, ModRuntime.Network.Manager);
             mountsSync = new MountSync(ModRuntime.Log, ModRuntime.Network.Manager, objects);
+            fireworks = new FireworksSync(ModRuntime.Log, ModRuntime.Network.Manager, objects);
             electricity = new ElectricitySync(ModRuntime.Log, ModRuntime.Network.Manager);
             mailboxes = new MailboxSync(ModRuntime.Log, ModRuntime.Network.Manager);
             guests = new GuestSync(ModRuntime.Log, ModRuntime.Network.Manager);
@@ -1754,6 +1757,19 @@ namespace SummerSync.Unity
                 {
                     mountsFailed = true;
                     ModRuntime.Log.Error(LogCategory.Fsm, "Sharing what is mounted onto things (the bucket's lid, the diskettes, the battery charger) failed; each game has its own until the main menu loads again. " + exception);
+                }
+            }
+
+            if (!fireworksFailed && !objectsFailed)
+            {
+                try
+                {
+                    fireworks.LateUpdate(ModRuntime.Network.Now, localPlayer);
+                }
+                catch (Exception exception)
+                {
+                    fireworksFailed = true;
+                    ModRuntime.Log.Error(LogCategory.Fsm, "Sharing the lighting of the rockets failed; a rocket flies only in the game where it is lit until the main menu loads again. " + exception);
                 }
             }
 

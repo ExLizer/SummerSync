@@ -34,7 +34,9 @@ namespace SummerSync.Unity.World
     /// When another machine's did, the one here is set to the number before it and sent "SPAWNITEM": the game
     /// makes the same thing with the same name, and it is put where the other has it. The loose objects'
     /// replication pairs the two by name like any other object; on the host, the copy starts as the maker's to
-    /// simulate. Whatever has lists is watched, and a change of them is passed on.
+    /// simulate. Whatever has lists is watched, and a change of them is passed on. Food goes with its freshness, the
+    /// "Condition" its maker copied from the bag open in that game (the global "ShoppingBagSpawn", which no other game
+    /// has open): the copy takes it as soon as it is made.
     ///
     /// Offline and in the loopback test nothing here touches the game.
     ///
@@ -52,6 +54,12 @@ namespace SummerSync.Unity.World
         private const string BagVariable = "ShoppingBagSpawn";
         private const string MakeEvent = "SPAWNITEM";
         private const string FinishedEvent = "FINISHED";
+
+        // Food's freshness (dump of 2026-10-15, "sausages(itemx) :: Use"): below 1 its "Use" goes to "Bad"; a new bag has 100.
+        private const string UseMachine = "Use";
+        private const string ConditionVariable = "Condition";
+        private const float FreshFloor = 1f;
+        private const float Fresh = 100f;
 
         private const string CountPrefix = "spawn/count/";
         private const double SearchInterval = 2.0;
@@ -526,6 +534,13 @@ namespace SummerSync.Unity.World
 
             GameObject bag = spawner.Bag == null ? null : spawner.Bag.Value;
             var spawn = new SpawnEvent { Spawner = spawner.Key, Number = number, Pose = PoseOf(made.transform), Near = bag == null ? string.Empty : bag.name };
+            FsmFloat condition = ConditionOf(made);
+            if (condition != null)
+            {
+                spawn.HasCondition = true;
+                spawn.Condition = condition.Value;
+            }
+
             current.Report(spawn);
             log.Info(LogCategory.Fsm, "Makers: this game made '" + name + "' (" + spawner.Key + ")" + (bag == null ? string.Empty : " out of '" + bag.name + "'") + " at " + Where(made.transform) + "; the others are told.");
             Discover(made);
@@ -629,6 +644,7 @@ namespace SummerSync.Unity.World
             }
 
             Place(made, spawn.Pose);
+            Freshen(made, spawn, name);
             objects.Expect(made, spawn.Player, now);
             log.Info(
                 LogCategory.Fsm,
@@ -636,6 +652,45 @@ namespace SummerSync.Unity.World
                 + Where(made.transform) + (had + 1 < spawn.Number ? "; this game had only up to " + had : string.Empty) + ".");
             Discover(made);
             Rescan();
+        }
+
+        // The freshness of food made here because another game made it. The maker copies it from the bag that is open in
+        // its game (the global "ShoppingBagSpawn"), and here that is no bag or another one: made with nothing to copy, it
+        // starts at 0, and a second later its "Use" calls it bad for good (state "Bad", which has no way out). So it takes
+        // the number the other game gave it, before its "Use" first looks (0.2 s after it is made). Without one (made for a
+        // world that joins), it starts fresh rather than bad: the host tells what it is there right after.
+        private void Freshen(GameObject made, SpawnEvent spawn, string name)
+        {
+            FsmFloat condition = ConditionOf(made);
+            if (condition == null)
+            {
+                return;
+            }
+
+            if (spawn.HasCondition)
+            {
+                condition.Value = spawn.Condition;
+            }
+            else if (condition.Value < FreshFloor)
+            {
+                log.Info(LogCategory.Fsm, "Makers: '" + name + "' was made here with a freshness of " + condition.Value.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) + " and none was said; it starts fresh until the host says what it is.");
+                condition.Value = Fresh;
+            }
+        }
+
+        // The "Condition" of the thing's state machine "Use" (food's freshness), or null if it has none.
+        private static FsmFloat ConditionOf(GameObject made)
+        {
+            PlayMakerFSM[] machines = made.GetComponents<PlayMakerFSM>();
+            for (int i = 0; i < machines.Length; i++)
+            {
+                if (machines[i].FsmName == UseMachine)
+                {
+                    return machines[i].FsmVariables.FindFsmFloat(ConditionVariable);
+                }
+            }
+
+            return null;
         }
 
         private static void Place(GameObject made, BodyPose pose)

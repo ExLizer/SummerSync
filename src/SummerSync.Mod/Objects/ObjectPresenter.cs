@@ -99,6 +99,13 @@ namespace SummerSync.Unity.Objects
         // fireworks bag and the Christmas lights).
         private static readonly string[] Containers = { "ITEMS", "CARPARTS", "MISC" };
 
+        // Or children of a place where the game puts what was paid for, to be picked up there: the repair shop's till moves
+        // each new part it sells onto its bench ("REPAIRSHOP/LOD/Store/ShopCashRegister/Register :: Data", states "Spawn" to
+        // "Spawn 15": SetParent to its "_SpawnPoint"; level file decoded on 2026-10-18). It is the one part of that name in
+        // the world, wherever it was until then; hanging there, it was no longer shared, and only the buyer saw it on the
+        // bench until they picked it up (2026-11-08).
+        private static readonly string[][] PlacedSpots = { new[] { "REPAIRSHOP", "LOD", "Store", "PartSpawn" } };
+
         // Or children of a shelf of this container: the Satsuma's parts that nobody has moved yet lie on
         // "CARPARTS/PartsCar", "PartsMotor", "PartsGT" and "PartsExtra" (in the game on 2026-10-15: 122 of them).
         // Picked up and let go, the hand leaves them at the root.
@@ -719,7 +726,7 @@ namespace SummerSync.Unity.Objects
         private static bool IsLoose(Transform transform)
         {
             Transform parent = transform.parent;
-            if (parent == null)
+            if (parent == null || IsPlacedSpot(parent))
             {
                 return true;
             }
@@ -827,6 +834,7 @@ namespace SummerSync.Unity.Objects
                 return;
             }
 
+            NoticePlaced(item);
             Tracked hanger = null;
             if (IsBuiltIn(item))
             {
@@ -890,7 +898,7 @@ namespace SummerSync.Unity.Objects
                 ushort carrier;
                 Transform carrierRoot;
                 Vector3 at = item.Transform.position;
-                if (vehicles.TryGetCarrier(at, out carrier, out carrierRoot) && !vehicles.Drives(carrier))
+                if (vehicles.TryGetCarrier(at, out carrier, out carrierRoot) && !RunsHere(carrier))
                 {
                     // In a vehicle someone else moves: theirs to simulate, not this machine's.
                     current.GiveBack(shared);
@@ -1180,7 +1188,7 @@ namespace SummerSync.Unity.Objects
             Transform carrierRoot;
             if (vehicles.TryGetCarrier(position, out carrier, out carrierRoot))
             {
-                return vehicles.Drives(carrier);
+                return RunsHere(carrier);
             }
 
             if ((position - nearPlayer).sqrMagnitude <= NearPlayer * NearPlayer)
@@ -1189,6 +1197,66 @@ namespace SummerSync.Unity.Objects
             }
 
             return drivesVehicle && (position - nearVehicle).sqrMagnitude <= vehicleReach * vehicleReach;
+        }
+
+        // Whether the physics of the vehicle with that number runs here: driven from here, or simulated here without anyone
+        // at the wheel (pushed by this player, or nearest to this one; VehiclePresenter.Nearest). What lies in it goes with
+        // that. Taken only by whoever drives, a boat pushed from a client floated off from under what it carried in the
+        // host's game, where the boat followed and the things in it did not; and a car parked next to a client kept what
+        // was in it on the host's, on the layer of what someone holds, which no hand picks things from (2026-11-08).
+        private bool RunsHere(ushort vehicle)
+        {
+            return vehicles.Drives(vehicle) || vehicles.Simulates(vehicle);
+        }
+
+        // The game of this machine has just put the thing on one of the places where it puts what is paid for: this machine
+        // simulates it from there (ObjectReplication.Place). Otherwise, where the owner has it, the copy here would go back
+        // there in the next frame, and the other games would never see it on the bench.
+        private void NoticePlaced(Tracked item)
+        {
+            Transform parent = item.Transform.parent;
+            if (item.ParentSeen && parent == item.LastParent)
+            {
+                return;
+            }
+
+            bool before = item.ParentSeen;
+            item.ParentSeen = true;
+            item.LastParent = parent;
+            if (!before || parent == null || !item.Shared.HasId || !IsPlacedSpot(parent))
+            {
+                return;
+            }
+
+            current.Place(item.Shared, PoseOf(item.Transform));
+            Vector3 at = item.Transform.position;
+            log.Info(
+                LogCategory.Authority,
+                "This game put '" + item.Shared.Name + "' on '" + parent.name + "' at (" + Format(at.x) + ", " + Format(at.y) + ", " + Format(at.z) + "): simulated here from there, "
+                + "and seen there in the other games.");
+        }
+
+        // Whether a thing that hangs from that object is put there to be picked up (PlacedSpots).
+        private static bool IsPlacedSpot(Transform spot)
+        {
+            for (int i = 0; i < PlacedSpots.Length; i++)
+            {
+                string[] path = PlacedSpots[i];
+                Transform at = spot;
+                int n = path.Length - 1;
+                while (n >= 0 && at != null && at.name == path[n])
+                {
+                    at = at.parent;
+                    n--;
+                }
+
+                if (n < 0 && at == null)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         // Bolted onto a car, put in a box: no longer something lying around. In the local player's hand it hangs
@@ -1446,6 +1514,11 @@ namespace SummerSync.Unity.Objects
             public Transform CheckedParent;
 
             public bool BuiltInThere;
+
+            /// <summary>The parent it had at the last look, to see the game put it somewhere (<see cref="ParentSeen"/>: looked once).</summary>
+            public Transform LastParent;
+
+            public bool ParentSeen;
 
             /// <summary>Its name and values as last told or heard, to see what changed; null before the first look.</summary>
             public string Signature;

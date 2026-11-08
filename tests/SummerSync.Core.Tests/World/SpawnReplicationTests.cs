@@ -62,6 +62,43 @@ public class SpawnReplicationTests
     }
 
     [Fact]
+    public void Food_keeps_the_freshness_its_game_gave_it_and_the_rest_has_none()
+    {
+        var net = new SessionNet(new NetworkConditions { LatencyMs = 40 });
+        var host = new Game(net.Host);
+        var buyer = new Game(net.AddClient("Julian"));
+        var other = new Game(net.AddClient("Second"));
+        net.Run(1);
+
+        buyer.Spawns.Report(new SpawnEvent { Spawner = "Spawner/CreateItems :: Sausages", Number = 5, Pose = BodyPose.At(1f, 2f, 3f), HasCondition = true, Condition = 97.25f });
+        buyer.Spawns.Report(Beer(6));
+        net.Run(1);
+
+        SpawnEvent sausages = host.Made[0];
+        Assert.True(sausages.HasCondition);
+        Assert.Equal(97.25f, sausages.Condition);
+        Assert.False(host.Made[1].HasCondition);
+        Assert.Equal(new[] { true, false }, other.Made.Select(made => made.HasCondition));
+        Assert.Equal(97.25f, other.Made[0].Condition);
+    }
+
+    [Fact]
+    public void A_freshness_that_is_not_a_number_is_not_sent()
+    {
+        var net = new SessionNet(new NetworkConditions { LatencyMs = 40 });
+        var host = new Game(net.Host);
+        var client = new Game(net.AddClient("Julian"));
+        net.Run(1);
+
+        host.Spawns.Report(new SpawnEvent { Spawner = "Spawner/CreateItems :: Milk", Number = 2, Pose = BodyPose.At(1f, 2f, 3f), HasCondition = true, Condition = float.NaN });
+        net.Run(0.5);
+
+        SpawnEvent milk = Assert.Single(client.Made);
+        Assert.False(milk.HasCondition);
+        Assert.Equal(0L, client.Spawns.Malformed);
+    }
+
+    [Fact]
     public void What_the_host_makes_every_client_makes()
     {
         var net = new SessionNet(new NetworkConditions { LatencyMs = 40 });

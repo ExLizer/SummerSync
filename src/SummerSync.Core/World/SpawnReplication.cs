@@ -85,6 +85,15 @@ namespace SummerSync.Core.World
 
         /// <summary>Whose game made it. Filled in by the host.</summary>
         public byte Player;
+
+        /// <summary>
+        /// Whether it has a freshness (<see cref="Condition"/>): food, which the maker gives the freshness of the bag it
+        /// comes out of. Each game has its own bag, so the copy takes the number from the game that made it.
+        /// </summary>
+        public bool HasCondition;
+
+        /// <summary>The "Condition" of its state machine "Use" as the game that made it gave it, if <see cref="HasCondition"/>.</summary>
+        public float Condition;
     }
 
     /// <summary>One list of a container: its name and its numbers.</summary>
@@ -281,6 +290,12 @@ namespace SummerSync.Core.World
             writer.WriteInt32(made.Number);
             made.Pose.Write(writer);
             writer.WriteString(made.Near ?? string.Empty);
+            bool hasCondition = made.HasCondition && !float.IsNaN(made.Condition) && !float.IsInfinity(made.Condition);
+            writer.WriteByte(hasCondition ? (byte)1 : (byte)0);
+            if (hasCondition)
+            {
+                writer.WriteSingle(made.Condition);
+            }
         }
 
         private SpawnEvent ReadSpawn()
@@ -290,6 +305,22 @@ namespace SummerSync.Core.World
             made.Number = reader.ReadInt32();
             made.Pose = BodyPose.Read(reader);
             made.Near = reader.ReadString(SpawnWire.MaxNameBytes);
+            byte hasCondition = reader.ReadByte();
+            if (hasCondition > 1)
+            {
+                throw new PacketFormatException("Something made with a freshness flag of " + hasCondition + ".");
+            }
+
+            if (hasCondition == 1)
+            {
+                made.HasCondition = true;
+                made.Condition = reader.ReadSingle();
+                if (float.IsNaN(made.Condition) || float.IsInfinity(made.Condition))
+                {
+                    throw new PacketFormatException("Something made with a freshness that is not a number.");
+                }
+            }
+
             if (made.Spawner.Length == 0 || made.Number <= 0 || made.Pose.Parent != 0)
             {
                 throw new PacketFormatException("Something made that has no maker, no number, or a place on a vehicle.");

@@ -362,6 +362,6 @@ public class WorldShareTests
     {
         Assert.Equal(75, WorldShareWire.MessageFiles);
         Assert.Equal(78, WorldShareWire.MessageManifest);
-        Assert.Equal(38, Protocol.Version);
+        Assert.Equal(39, Protocol.Version);
     }
 }

@@ -36,6 +36,29 @@ namespace SummerSync.Unity.Objects
         }
 
         /// <summary>
+        /// The loose things here called <paramref name="name"/>, with their shared numbers (0 for one not shared yet), into
+        /// the lists (cleared first).
+        /// </summary>
+        public void SharedNamed(string name, System.Collections.Generic.List<GameObject> things, System.Collections.Generic.List<ushort> ids)
+        {
+            things.Clear();
+            ids.Clear();
+            for (int i = 0; i < tracked.Count; i++)
+            {
+                Tracked item = tracked[i];
+
+                // Unity's null check is also true for a destroyed object.
+                if (item.Transform == null || item.Shared.Name != name)
+                {
+                    continue;
+                }
+
+                things.Add(item.Transform.gameObject);
+                ids.Add(item.Shared.HasId ? item.Shared.Id : (ushort)0);
+            }
+        }
+
+        /// <summary>
         /// Whether that thing is a copy here of a loose object another machine moves (in another player's hand, or on its way
         /// where that player's game has it): a job here must not take it for its own (<see cref="World.JobSync"/>).
         /// </summary>
