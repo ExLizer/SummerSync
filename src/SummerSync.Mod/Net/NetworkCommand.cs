@@ -196,6 +196,12 @@ namespace SummerSync.Unity.Net
                 return;
             }
 
+            if (args.Length > 0 && (string.Equals(args[0], "smoke", System.StringComparison.OrdinalIgnoreCase) || string.Equals(args[0], "humo", System.StringComparison.OrdinalIgnoreCase)))
+            {
+                ModConsole.Print(Prefix + RuntimeDriver.Smoke());
+                return;
+            }
+
             if (args.Length > 0 && string.Equals(args[0], "crash", System.StringComparison.OrdinalIgnoreCase))
             {
                 ModConsole.Print(Prefix + RuntimeDriver.Crash(args.Length > 1 ? args[1] : null));

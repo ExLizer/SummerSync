@@ -686,6 +686,27 @@ public class VehicleDefinitionTests
     }
 
     [Fact]
+    public void The_cabins_open_by_their_doors_and_not_by_the_hood_or_the_boot()
+    {
+        string folder = Path.Combine(AppContext.BaseDirectory, "data", "vehicles");
+        var vehicles = Directory.GetFiles(folder, "*.json").Select(f => VehicleDefinition.Parse(File.ReadAllText(f))).ToDictionary(v => v.Nick);
+
+        Assert.Equal(new[] { "DriverDoors/doorl", "DriverDoors/doorr" }, vehicles["kekmet"].CabinVents);
+        Assert.Equal(new[] { "Body/pivot_door_left/door left(Clone)", "Body/pivot_door_right/door right(Clone)" }, vehicles["satsuma"].CabinVents);
+        // The van and the Ruscko are one space from the front seats to the back door.
+        Assert.Contains("RearDoor/doorear", vehicles["van"].CabinVents);
+        Assert.Contains("SideDoor/door/Collider", vehicles["van"].CabinVents);
+        Assert.Contains("RearDoor/doorear/door/Handle", vehicles["ruscko"].CabinVents);
+        Assert.DoesNotContain(vehicles.Values.SelectMany(v => v.CabinVents), vent => vent.Contains("hood") || vent.Contains("ootlid") || vent.Contains("glov"));
+        Assert.Empty(vehicles["jonnez"].CabinVents);
+
+        // Doors to a space the file does not have are a mistake.
+        string moped = File.ReadAllText(Path.Combine(folder, "jonnez.json"));
+        var error = Assert.Throws<FormatException>(() => VehicleDefinition.Parse(moped.Replace("\"rootName\"", "\"cabinVents\": [\"door\"], \"rootName\"")));
+        Assert.Contains("cabinVents", error.Message);
+    }
+
+    [Fact]
     public void Every_vehicle_file_in_the_repository_can_be_read()
     {
         string folder = Path.Combine(AppContext.BaseDirectory, "data", "vehicles");

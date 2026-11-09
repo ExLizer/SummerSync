@@ -771,6 +771,24 @@ namespace SummerSync.Unity.Vehicles
             return false;
         }
 
+        /// <summary>
+        /// The vehicles of this world with a space inside (<see cref="VehicleDefinition.Interior"/>), as this machine has
+        /// them: its own, or its copy of one another machine simulates. <paramref name="into"/> is emptied first.
+        /// </summary>
+        public void ListCabins(List<KeyValuePair<Transform, VehicleDefinition>> into)
+        {
+            into.Clear();
+            for (int i = 0; i < tracked.Count; i++)
+            {
+                // Unity's null check is also true for a destroyed object.
+                Tracked vehicle = tracked[i];
+                if (vehicle.Body != null && vehicle.Root != null && vehicle.Definition.HasInterior)
+                {
+                    into.Add(new KeyValuePair<Transform, VehicleDefinition>(vehicle.Root, vehicle.Definition));
+                }
+            }
+        }
+
         /// <summary>This machine's copy of the vehicle with that number, or null if it has none.</summary>
         public Transform RootOf(ushort vehicleId)
         {

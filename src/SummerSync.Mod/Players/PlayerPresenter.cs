@@ -60,6 +60,8 @@ namespace SummerSync.Unity.Players
         // When the log next hears how each driver's hands and feet reach the controls; absent while they do not drive.
         private readonly Dictionary<byte, double> nextDriverLog = new Dictionary<byte, double>();
 
+        private readonly List<Smoker> smokers = new List<Smoker>();
+
         /// <summary>Who looks like whom. Set by the driver; without it everyone is a capsule.</summary>
         public LookSync Looks { get; set; }
 
@@ -97,6 +99,15 @@ namespace SummerSync.Unity.Players
             get { return localInWorld ? probe.Body : null; }
         }
 
+        /// <summary>
+        /// The players smoking now, this one too, where they are in the world (the origin of their object), and whether
+        /// they breathe the smoke out: as of the last <see cref="LateUpdate"/>.
+        /// </summary>
+        public IList<Smoker> Smokers
+        {
+            get { return smokers; }
+        }
+
         /// <summary>Call when the driver starts and whenever Unity has loaded a level.</summary>
         public void OnLevelLoaded(string levelName)
         {
@@ -122,6 +133,11 @@ namespace SummerSync.Unity.Players
             }
 
             manager.SetLocalPlayer(localInWorld, localPose);
+            smokers.Clear();
+            if (localInWorld && localPose.Activity == PlayerActivity.Smoking)
+            {
+                smokers.Add(new Smoker(probe.Body.position, localPose.ActivityDetail == PlayerPose.SmokeBreathing));
+            }
 
             PlayerReplication players = manager.Players;
             if (players == null)
@@ -159,6 +175,11 @@ namespace SummerSync.Unity.Players
                     }
 
                     continue;
+                }
+
+                if (!died && !echo && shown.Activity == PlayerActivity.Smoking)
+                {
+                    smokers.Add(new Smoker(new Vector3(shown.X, shown.Y, shown.Z), shown.ActivityDetail == PlayerPose.SmokeBreathing));
                 }
 
                 PlayerAvatar avatar = AvatarFor(remote);

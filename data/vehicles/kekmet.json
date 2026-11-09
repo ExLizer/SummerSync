@@ -17,6 +17,7 @@
     ]
   },
   "exitMargin": 0.25,
+  "cabinVents": ["DriverDoors/doorl", "DriverDoors/doorr"],
   "lights": {
     "switchPath": "LOD/Dashboard/Lights",
     "switchMachine": "Use"

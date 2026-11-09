@@ -157,7 +157,7 @@ internal static class Program
 
         var log = new Logger { MinimumLevel = options.Quiet ? LogLevel.Warning : LogLevel.Info };
         log.AddSink(new ConsoleSink());
-        var manager = new NetworkManager(log) { ModVersion = BuildInfo.Version, GameVersion = options.GameVersion };
+        var manager = new NetworkManager(log) { ModVersion = UpdateCheck.TagOf(BuildInfo.InformationalVersion), GameVersion = options.GameVersion };
         manager.Conditions.LatencyMs = options.Simulate.LatencyMs;
         manager.Conditions.JitterMs = options.Simulate.JitterMs;
         manager.Conditions.LossPercent = options.Simulate.LossPercent;

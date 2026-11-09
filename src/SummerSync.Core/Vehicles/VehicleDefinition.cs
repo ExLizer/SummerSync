@@ -492,6 +492,13 @@ namespace SummerSync.Core.Vehicles
         public float ExitMargin { get; private set; }
 
         /// <summary>
+        /// The doors that open the space inside to the outside (paths below the root, to the object whose state machine
+        /// "Use" has the boolean "Open"): what smoke in it goes out by. One that is not there (a door taken off) is a hole
+        /// that is always open. Empty for a vehicle without that space or without doors.
+        /// </summary>
+        public string[] CabinVents { get; private set; }
+
+        /// <summary>
         /// The game's state machines that move the vehicle by themselves ("path::machine", the path below the root, empty
         /// for the root itself: the boat's floating and its bow), paused on a machine that shows the vehicle where another
         /// machine simulates it. Empty for most.
@@ -727,6 +734,11 @@ namespace SummerSync.Core.Vehicles
             ParseSeats(file, what, definition);
             ParseCrash(file, what, definition);
             definition.FollowOff = Texts(file, "followOff", what);
+            definition.CabinVents = Texts(file, "cabinVents", what);
+            if (definition.CabinVents.Length > 0 && !definition.HasInterior)
+            {
+                throw new FormatException(what + " has doors to its space inside (\"cabinVents\") but no \"interior\".");
+            }
             definition.FollowKinematic = Texts(file, "followKinematic", what);
             for (int i = 0; i < definition.FollowOff.Length; i++)
             {

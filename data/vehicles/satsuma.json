@@ -18,6 +18,7 @@
     ]
   },
   "exitMargin": 0.25,
+  "cabinVents": ["Body/pivot_door_left/door left(Clone)", "Body/pivot_door_right/door right(Clone)"],
   "lights": {
     "switchUnder": "dashboard meters(Clone)",
     "switchPath": "Knobs/ButtonsDash/LightModes",

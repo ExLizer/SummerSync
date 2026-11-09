@@ -97,6 +97,8 @@ namespace SummerSync.Unity
         private MountSync mountsSync;
         private bool mountsFailed;
         private FireworksSync fireworks;
+        private CabinSmoke cabinSmoke;
+        private bool cabinSmokeFailed;
         private bool fireworksFailed;
         private ElectricitySync electricity;
         private bool electricityFailed;
@@ -467,6 +469,18 @@ namespace SummerSync.Unity
             return current.dentsFailed ? "Sharing the dents is off (the log says why)." : current.dents.Describe();
         }
 
+        /// <summary>The "ss smoke" console command: how much smoke there is in each cabin, and who breathes it out there.</summary>
+        public static string Smoke()
+        {
+            // Unity's null check is also true for an object that has been destroyed.
+            if (current == null || current.cabinSmoke == null)
+            {
+                return "The mod is not running yet.";
+            }
+
+            return current.cabinSmokeFailed ? "The smoke in the cabins is off (the log says why)." : current.cabinSmoke.Describe();
+        }
+
         /// <summary>"ss crash [m/s]": a test aid that changes in one go how fast the vehicle at hand goes, where this game simulates it.</summary>
         public static string Crash(string what)
         {
@@ -641,6 +655,7 @@ namespace SummerSync.Unity
             tools = new ToolSync(ModRuntime.Log, ModRuntime.Network.Manager);
             mountsSync = new MountSync(ModRuntime.Log, ModRuntime.Network.Manager, objects);
             fireworks = new FireworksSync(ModRuntime.Log, ModRuntime.Network.Manager, objects);
+            cabinSmoke = new CabinSmoke(ModRuntime.Log, ModRuntime.Network.Manager, vehicles, players);
             electricity = new ElectricitySync(ModRuntime.Log, ModRuntime.Network.Manager);
             mailboxes = new MailboxSync(ModRuntime.Log, ModRuntime.Network.Manager);
             guests = new GuestSync(ModRuntime.Log, ModRuntime.Network.Manager);
@@ -1770,6 +1785,28 @@ namespace SummerSync.Unity
                 {
                     fireworksFailed = true;
                     ModRuntime.Log.Error(LogCategory.Fsm, "Sharing the lighting of the rockets failed; a rocket flies only in the game where it is lit until the main menu loads again. " + exception);
+                }
+            }
+
+            if (!cabinSmokeFailed)
+            {
+                try
+                {
+                    cabinSmoke.LateUpdate(ModRuntime.Network.Now, localPlayer);
+                }
+                catch (Exception exception)
+                {
+                    cabinSmokeFailed = true;
+                    try
+                    {
+                        cabinSmoke.Release();
+                    }
+                    catch (Exception)
+                    {
+                        // Already failing: what it drew goes with the world.
+                    }
+
+                    ModRuntime.Log.Error(LogCategory.Vehicle, "The smoke in the cabins failed; there is none until the main menu loads again. " + exception);
                 }
             }
 
