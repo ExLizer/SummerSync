@@ -194,6 +194,7 @@ namespace SummerSync.Unity.Objects
                 {
                     current.GoneWanted -= OnGoneWanted;
                     current.Subscribed -= OnSubscribed;
+                    current.RunsVehicle = null;
                 }
 
                 current = objects;
@@ -201,6 +202,7 @@ namespace SummerSync.Unity.Objects
                 {
                     current.GoneWanted += OnGoneWanted;
                     current.Subscribed += OnSubscribed;
+                    current.RunsVehicle = RunsHere;
                 }
 
                 AttachItems(objects == null ? null : manager.Items);
@@ -898,7 +900,16 @@ namespace SummerSync.Unity.Objects
                 ushort carrier;
                 Transform carrierRoot;
                 Vector3 at = item.Transform.position;
-                if (vehicles.TryGetCarrier(at, out carrier, out carrierRoot) && !RunsHere(carrier))
+                ushort ridden = shared.Role == BodyRole.Follow && shared.HasTarget ? shared.Target.Parent : (ushort)0;
+                if (ridden != 0 && !RunsHere(ridden))
+                {
+                    // Its owner has it on a vehicle that moves on another machine: theirs, wherever this machine shows it for
+                    // a frame. Shown a frame behind this copy of the vehicle, or left behind when the copy is put where its
+                    // owner has it, it can look just out of the vehicle, next to what this player drives, and was asked for:
+                    // a jerrycan on a tractor driven by the host jolted through it in the host's game while a guest rode a
+                    // moped beside it (2026-11-09).
+                }
+                else if (vehicles.TryGetCarrier(at, out carrier, out carrierRoot) && !RunsHere(carrier))
                 {
                     // In a vehicle someone else moves: theirs to simulate, not this machine's.
                     current.GiveBack(shared);
@@ -1482,7 +1493,7 @@ namespace SummerSync.Unity.Objects
             /// <summary>The thing's own state machine "Use", once looked for; null if it has none.</summary>
             public PlayMakerFSM Use;
 
-            // A can's fluid: the machine "Data" of its child "FluidTrigger".
+            // A can's fluid: the machine "Data" of its child "FluidTrigger" (or the like: ContentsChildren).
             public PlayMakerFSM Contents;
 
             public bool ContentsSearched;

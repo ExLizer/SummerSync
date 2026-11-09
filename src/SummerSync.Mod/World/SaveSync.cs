@@ -43,6 +43,8 @@ namespace SummerSync.Unity.World
         private const string RequestPrefix = "save/request/";
         private const string DoneTally = "save/done";
         private const string BackEvent = "SUMMERSYNC SAVE BACK";
+        private const string AfterClickState = "SummerSync after click";
+        private const string AfterClickEvent = "SUMMERSYNC SAVE CLICKED";
         private const string QuitText = "SAVE AND QUIT TO MENU";
         private const string SessionText = "SAVE GAME";
         private const double FindEvery = 5.0;
@@ -180,6 +182,20 @@ namespace SummerSync.Unity.World
                         machine.AddGlobalTransition(BackEvent, SaveButtons.WaitState);
                     }
 
+                    if (!DoorSync.HasState(machine, AfterClickState))
+                    {
+                        machine.AddState(AfterClickState);
+                        if (!machine.FsmInject(AfterClickState, new AfterClick(machine), -1, false))
+                        {
+                            throw new InvalidOperationException("the mod's state '" + AfterClickState + "' could not take its action");
+                        }
+                    }
+
+                    if (machine.GetGlobalTransition(AfterClickEvent) == null)
+                    {
+                        machine.AddGlobalTransition(AfterClickEvent, AfterClickState);
+                    }
+
                     PlayMakerFSM pressed = machine;
                     if (!machine.FsmInject(SaveButtons.MuteState, () => Pressed(pressed), false, 0, false))
                     {
@@ -242,8 +258,9 @@ namespace SummerSync.Unity.World
             }
         }
 
-        // The game's "Mute audio", before anything of its own: in a session the button goes back to waiting, so the rest of the
-        // state (the boxes, the version, the muting) and the menu do not happen, and the world is saved here or by the host.
+        // The game's "Mute audio", before anything of its own: in a session the button leaves it at once for the mod's state,
+        // which takes it back to waiting, so the rest of the state (the boxes, the version, the muting) and the menu do not
+        // happen, and the world is saved here or by the host.
         private void Pressed(PlayMakerFSM machine)
         {
             // Not while the mod runs the save: that is not the player pressing it.
@@ -252,7 +269,7 @@ namespace SummerSync.Unity.World
                 return;
             }
 
-            machine.SendEvent(BackEvent);
+            machine.SendEvent(AfterClickEvent);
             NetSession session = manager.Session;
             if (session != null && session.Role == SessionRole.Host)
             {
@@ -364,6 +381,34 @@ namespace SummerSync.Unity.World
         private static void Notify(string english, string spanish)
         {
             HostWorld.Notify(english, spanish, NoticeSeconds);
+        }
+
+        // The mod's state after a click it took: the button goes back to waiting only in a later frame with the mouse's button
+        // up. Sent back in the frame of the click, it is pointed at and clicked again in that same frame, a thousand times,
+        // and PlayMaker switches it off ("Loop count exceeded"): that toilet saved once and never again until the world
+        // loaded again (2026-11-09).
+        private sealed class AfterClick : FsmStateAction
+        {
+            private readonly PlayMakerFSM machine;
+            private int frame;
+
+            public AfterClick(PlayMakerFSM machine)
+            {
+                this.machine = machine;
+            }
+
+            public override void OnEnter()
+            {
+                frame = Time.frameCount;
+            }
+
+            public override void OnUpdate()
+            {
+                if (Time.frameCount > frame && !Input.GetMouseButton(0))
+                {
+                    machine.SendEvent(BackEvent);
+                }
+            }
         }
     }
 }

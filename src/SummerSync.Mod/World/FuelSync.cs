@@ -412,9 +412,12 @@ namespace SummerSync.Unity.World
                 }
 
                 // A tank only fills by being poured into: what went up here since the last frame, this game poured.
-                // Told a few times a second while it goes on.
-                tank.PendingFuel += level > tank.LastLevel + Poured ? Centi(level - tank.LastLevel) : 0;
-                tank.PendingOil += oil > tank.LastOil + Poured ? Centi(oil - tank.LastOil) : 0;
+                // Told a few times a second while it goes on. Up from below nothing is not a pour: the engine burns from
+                // the fuel oil too, empty or not, and the tank puts it back to nothing a second later (FuelLine and the
+                // tank's "Activate"), and in a game that shows a diesel running that went to the vehicle's machine as
+                // fuel oil poured, as much as it burnt (log of 2026-11-08, the tractor).
+                tank.PendingFuel += Rise(tank.LastLevel, level);
+                tank.PendingOil += Rise(tank.LastOil, oil);
                 if ((tank.PendingFuel > 0 || tank.PendingOil > 0) && now >= tank.NextPour)
                 {
                     tank.NextPour = now + PourInterval;
@@ -447,6 +450,13 @@ namespace SummerSync.Unity.World
             }
 
             tank.ReportNow = true;
+        }
+
+        // Hundredths of a litre a tank went up from one frame to the next, counted from nothing if it was below.
+        private static int Rise(float was, float now)
+        {
+            float from = Mathf.Max(was, 0f);
+            return now > from + Poured ? Centi(now - from) : 0;
         }
 
         private void Pour(Tank tank, int fuel, int oil, double now)

@@ -207,6 +207,51 @@ public class ObjectNearAndCarriedTests
     }
 
     [Fact]
+    public void Being_near_takes_nothing_from_the_vehicle_the_host_moves_it_on()
+    {
+        var net = new SessionNet(new NetworkConditions { LatencyMs = 40 });
+        var host = new FakeWorld(net.Host, Yard());
+        var client = new FakeWorld(net.AddClient("Julian"), Yard());
+        net.Run(2);
+
+        // The host drives the tractor (vehicle 7) with a jerrycan on it; the van (vehicle 3) runs on the client.
+        host.Replication.RunsVehicle = vehicle => vehicle == 7;
+        var place = BodyPose.At(-0.2f, 1f, -0.4f);
+        host[0].CarriedBy = 7;
+        host[0].PlaceOnVehicle = place;
+        host[0].Path = time => FakeWorld.VehicleAt(time).Moved(place.X, place.Y, place.Z);
+        host[0].Awake = true;
+        net.Run(1);
+        Assert.Equal(7, client[0].Pose.Parent);
+
+        // The client rides past on a moped, and its game takes the jerrycan for something near its player.
+        client.Replication.SetNear(client[0].Shared, true);
+        net.Run(1);
+
+        // The host keeps it, and the client goes back to showing it on the tractor.
+        Assert.Equal(BodyRole.Simulate, host[0].Shared.Role);
+        Assert.Equal(0, host[0].Shared.Owner);
+        Assert.Equal(BodyRole.Follow, client[0].Shared.Role);
+        Assert.Equal(0, client[0].Shared.Owner);
+        Assert.Equal(1, host.Replication.NearClaimsOnBoard);
+        net.Run(1);
+        Assert.Equal(7, client[0].Pose.Parent);
+
+        // What the host carries on a vehicle that runs on the client is the client's to ask for.
+        host[1].CarriedBy = 3;
+        host[1].PlaceOnVehicle = place;
+        host[1].Path = time => FakeWorld.VehicleAt(time).Moved(place.X, place.Y, place.Z);
+        host[1].Awake = true;
+        net.Run(1);
+        client.Replication.SetNear(client[1].Shared, true);
+        net.Run(1);
+        Assert.Equal(1, host[1].Shared.Owner);
+        Assert.Equal(BodyRole.Simulate, client[1].Shared.Role);
+        Assert.Equal(1, host.Replication.NearClaimsOnBoard);
+        Assert.Equal(0, host.Replication.Malformed + client.Replication.Malformed);
+    }
+
+    [Fact]
     public void Taking_over_what_a_vehicle_carried_starts_from_its_place_in_the_world()
     {
         var net = new SessionNet();

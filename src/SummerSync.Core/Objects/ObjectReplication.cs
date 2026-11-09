@@ -302,6 +302,7 @@ namespace SummerSync.Core.Objects
         private const double ReleaseNotBeforeSeconds = 0.3;
         private const double MalformedLogInterval = 5.0;
         private const double NearClaimInterval = 1.0;
+        private const long NearClaimsOnBoardLogged = 5;
         private const double UnpairedReportDelay = 1.5;
 
         // What only this world has may change every second while the car is built here (its loose parts go in one by one).
@@ -482,6 +483,16 @@ namespace SummerSync.Core.Objects
 
         /// <summary>On the host: a client's world is ready and it was just sent the whole list. The client's number.</summary>
         public event Action<byte> Subscribed;
+
+        /// <summary>
+        /// Whether the physics of the vehicle with that number runs on this machine (the game's side says; null: none does).
+        /// On the host, what it simulates on board of such a vehicle is not given to a client for being near: what lies in
+        /// a vehicle goes with the machine that moves it, however close anyone else comes.
+        /// </summary>
+        public Func<ushort, bool> RunsVehicle { get; set; }
+
+        /// <summary>Claims for being near that the host turned down because the object rides a vehicle it moves.</summary>
+        public long NearClaimsOnBoard { get; private set; }
 
         /// <summary>
         /// For measuring only: every state of an object another machine moves, as it arrives, with the sender's clock
@@ -1360,6 +1371,13 @@ namespace SummerSync.Core.Objects
             return body.StreamPose.Parent != 0 ? body.StreamPose : body.LocalPose;
         }
 
+        // On the host: the object is simulated here and was last said to ride a vehicle whose physics runs here.
+        private bool OnBoardHere(SharedBody body)
+        {
+            Func<ushort, bool> runs = RunsVehicle;
+            return IsHost && body.Role == BodyRole.Simulate && body.StreamPose.Parent != 0 && runs != null && runs(body.StreamPose.Parent);
+        }
+
         private void Grab(SharedBody body)
         {
             if (IsHost)
@@ -2038,16 +2056,28 @@ namespace SummerSync.Core.Objects
                 // Letting go of something it does not have: late news, already settled.
                 return;
             }
-            else if (kind == ObjectWire.ClaimNear && (body.Held || body.Owner != Protocol.HostPlayerId))
+            else if (kind == ObjectWire.ClaimNear && (body.Held || body.Owner != Protocol.HostPlayerId || OnBoardHere(body)))
             {
-                // Being near takes nothing from another player. The answer says who has it, and the claimant
-                // goes back to showing it where they say.
+                // Being near takes nothing from another player, nor from the vehicle this machine moves it on. The answer
+                // says who has it, and the claimant goes back to showing it where they say.
                 writer.Reset();
                 writer.WriteByte((byte)(ObjectWire.MessageOwner + shift));
                 writer.WriteUInt16(body.Id);
                 writer.WriteByte(body.Owner);
                 writer.WriteByte(body.Held ? (byte)1 : (byte)0);
                 session.Send(sender, writer.Buffer, 0, writer.Length, true);
+                if (!body.Held && body.Owner == Protocol.HostPlayerId)
+                {
+                    NearClaimsOnBoard++;
+                    if (NearClaimsOnBoard <= NearClaimsOnBoardLogged)
+                    {
+                        log.Info(
+                            LogCategory.Authority,
+                            prefix + "Player " + sender + " asked for object " + id + " '" + body.Name + "' for being near; it rides vehicle "
+                            + body.StreamPose.Parent + ", which moves here: kept here" + (NearClaimsOnBoard == NearClaimsOnBoardLogged ? " (no more of these lines this session)." : "."));
+                    }
+                }
+
                 return;
             }
             else if (body.Held)

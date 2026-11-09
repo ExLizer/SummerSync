@@ -14,7 +14,7 @@ namespace SummerSync.Unity.Objects
     /// "ContainsJuice" false and is renamed "empty plastic can(itemx)" a few seconds later; a beer case counts the
     /// bottles taken out in "DestroyedBottles" and destroys one of its children for each. A can of fuel or of any
     /// other fluid keeps how much it holds in the numbers called "Fluid…" of the machine "Data" of its child
-    /// "FluidTrigger", and is renamed after it ("gasoline 40%(itemx)"). Whichever game changes them (a can can be
+    /// "FluidTrigger" (or "TwoStrokeTrigger" and the like), and is renamed after it ("gasoline 40%(itemx)"). Whichever game changes them (a can can be
     /// drunk off a table, without being picked up) tells the whole, numbers and truth values and name; the others
     /// write them into their copy, and take out as many bottles as were taken.
     /// </summary>
@@ -29,8 +29,15 @@ namespace SummerSync.Unity.Objects
         private const double ItemNewsKeep = 45.0;
 
         private const string BottlesVariable = "DestroyedBottles";
-        private const string ContentsChild = "FluidTrigger";
         private const string ContentsMachine = "Data";
+
+        // The child that holds a can's fluid. The other cans keep it the same way under their own name (dump of 2026-10-15),
+        // and copy it into the "Fluid" of their "Use" as they pour: with only that copy told, each game wrote its own back
+        // over the other's once a second, and a two-stroke can poured into a moped was full again in the other game.
+        private static readonly string[] ContentsChildren =
+        {
+            "FluidTrigger", "TwoStrokeTrigger", "MotorOilTrigger", "CoolantTrigger", "BrakeFluidTrigger",
+        };
         private const string ContentsPrefix = "FluidTrigger:";
         private const string FluidPrefix = "Fluid";
 
@@ -387,14 +394,17 @@ namespace SummerSync.Unity.Objects
             if (!item.ContentsSearched)
             {
                 item.ContentsSearched = true;
-                Transform child = item.Transform.Find(ContentsChild);
-                PlayMakerFSM[] machines = child == null ? new PlayMakerFSM[0] : child.GetComponents<PlayMakerFSM>();
-                for (int i = 0; i < machines.Length; i++)
+                for (int c = 0; c < ContentsChildren.Length && item.Contents == null; c++)
                 {
-                    if (machines[i].FsmName == ContentsMachine)
+                    Transform child = item.Transform.Find(ContentsChildren[c]);
+                    PlayMakerFSM[] machines = child == null ? new PlayMakerFSM[0] : child.GetComponents<PlayMakerFSM>();
+                    for (int i = 0; i < machines.Length; i++)
                     {
-                        item.Contents = machines[i];
-                        break;
+                        if (machines[i].FsmName == ContentsMachine)
+                        {
+                            item.Contents = machines[i];
+                            break;
+                        }
                     }
                 }
             }
