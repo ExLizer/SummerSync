@@ -47,20 +47,25 @@ namespace SummerSync.Unity.Objects
         // dump of 2026-10-15), and a lit lantern counts "Burning" up to a "Burntime" each game rolls, with "Pos" its height.
         // The bucket's lid went back off in a game that had it on (log of 2026-11-08: "LidOn" from the other game's last
         // brewing news). Of the coffee cup, "Pos" is its coffee over 3.75, worked out each frame.
+        //
+        // A car battery, the same (decoded level of 2026-10-18, "battery0 :: Use"): once a second its "Use" takes
+        // "DischargeRate" off "Charge", and under 109 also wears it out ("ChargeMax" down, "DischargeRate" up), with nothing to
+        // stop "Charge" below nothing; the charger adds to "Charge" every frame. All of it runs in every game, near the
+        // battery or not (measured on 2026-11-09 with a player at the shop), and no player changes those numbers by hand.
+        // Told, a worn battery had both games telling each other its three numbers every few seconds (294 times in a session
+        // of 72 minutes).
         private static readonly string[] Unshared =
         {
             "Condition", "Distance", "FridgeDistance", "SpoilingRate", "SpoilingRateFridge", "DestroyProgress",
             "Time", "Vinegar", "Alcohol", "Sweetness", "SugarWaterRatio", "Math0", "Math1", "Math2",
             "Burning", "Burntime", "Pos",
+            "Charge", "ChargeMax", "DischargeRate",
         };
 
         // Of those, what a world that joins takes from the host once, as it is there (food's spoiling, how far the bucket
-        // has brewed).
-        private static readonly string[] Joining = { "Condition", "Time", "Vinegar", "Alcohol" };
-
-        // Numbers the game also changes by itself, slowly, but a player too, fast: news only in whole units (a battery
-        // loses 0.01 of its charge every 13 seconds in every game, seen on 2026-10-15, and gains it on the charger).
-        private static readonly string[] Coarse = { "Charge" };
+        // has brewed, how a battery is: its "DischargeRate" is saved and never loaded, so a game that has just loaded has the
+        // prefab's).
+        private static readonly string[] Joining = { "Condition", "Time", "Vinegar", "Alcohol", "Charge", "ChargeMax", "DischargeRate" };
 
         private readonly List<ItemNews> itemNews = new List<ItemNews>();
         private readonly List<ItemValue> itemValues = new List<ItemValue>();
@@ -343,8 +348,7 @@ namespace SummerSync.Unity.Objects
             {
                 if (IsShared(floats[i].Name) || (whole && System.Array.IndexOf(Joining, floats[i].Name) >= 0))
                 {
-                    string resolution = System.Array.IndexOf(Coarse, floats[i].Name) >= 0 ? "0" : "0.00";
-                    itemText.Append('|').Append(floats[i].Name).Append('=').Append(floats[i].Value.ToString(resolution, CultureInfo.InvariantCulture));
+                    itemText.Append('|').Append(floats[i].Name).Append('=').Append(floats[i].Value.ToString("0.00", CultureInfo.InvariantCulture));
                     if (values != null)
                     {
                         values.Add(ItemValue.Float(floats[i].Name, floats[i].Value));

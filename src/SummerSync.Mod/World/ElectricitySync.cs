@@ -575,7 +575,9 @@ namespace SummerSync.Unity.World
 
             if (key.StartsWith(HolderPrefix, StringComparison.Ordinal))
             {
-                if (values.Length < 3 || values[2] == manager.Session.LocalPlayerId)
+                // Its own word coming back, unless it is catching up: then it was said before this world was loaded, by this
+                // game or by a player who had this number before.
+                if (values.Length < 3 || (values[2] == manager.Session.LocalPlayerId && !catchUp))
                 {
                     return;
                 }

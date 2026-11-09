@@ -211,8 +211,10 @@ namespace SummerSync.Unity.World
                 return;
             }
 
-            // This game's own word, coming back: what it has now is newer.
-            if (values[2] == manager.Session.LocalPlayerId)
+            // This game's own word, coming back: what it has now is newer. Not while catching up: what comes then under this
+            // player's number was said before this world was loaded, by this game or by a player who had the number before
+            // (a guest who joined late did not put on the charger the battery an earlier guest had put there).
+            if (values[2] == manager.Session.LocalPlayerId && !current.CatchingUp)
             {
                 return;
             }

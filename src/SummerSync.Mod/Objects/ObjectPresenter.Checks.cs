@@ -17,8 +17,11 @@ namespace SummerSync.Unity.Objects
         /// <summary>How near a resting copy must be to the host's place to be the same.</summary>
         private const float RestTolerance = 0.3f;
 
-        // Food spoils in every game by itself: compared in steps of this much.
-        private const float ConditionStep = 5f;
+        // What every game works out by itself (ObjectPresenter.Items, Unshared) and has to stay about the same in all: compared
+        // in steps of this much, and put as the host has it where it is not. Food's spoiling; a battery's charge, how much it
+        // can hold and how fast it runs down.
+        private static readonly string[] SteppedNames = { "Condition", "Charge", "ChargeMax", "DischargeRate" };
+        private static readonly float[] SteppedBy = { 5f, 2f, 0.5f, 0.01f };
 
         private PlacesSection places;
         private ContentsSection contents;
@@ -105,10 +108,19 @@ namespace SummerSync.Unity.Objects
                     continue;
                 }
 
+                // Each in its own bits: two of them a step off must not cancel out.
+                ulong key = ChecksumReplication.KeyOf(signature);
                 PlayMakerFSM use = UseOf(item);
-                HutongGames.PlayMaker.FsmFloat condition = use == null ? null : use.FsmVariables.FindFsmFloat("Condition");
-                int spoiled = condition == null ? 0 : Mathf.RoundToInt(condition.Value / ConditionStep);
-                entries.Add(new CheckEntry(item.Shared.Id, ChecksumReplication.KeyOf(signature) ^ (ulong)(uint)spoiled));
+                for (int s = 0; use != null && s < SteppedNames.Length; s++)
+                {
+                    HutongGames.PlayMaker.FsmFloat stepped = use.FsmVariables.FindFsmFloat(SteppedNames[s]);
+                    if (stepped != null)
+                    {
+                        key = unchecked((key * 1099511628211UL) ^ (ulong)(uint)Mathf.RoundToInt(stepped.Value / SteppedBy[s]));
+                    }
+                }
+
+                entries.Add(new CheckEntry(item.Shared.Id, key));
             }
         }
 

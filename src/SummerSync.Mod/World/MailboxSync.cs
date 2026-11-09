@@ -220,7 +220,9 @@ namespace SummerSync.Unity.World
         private void Hear(string key, int[] values, bool catchUp)
         {
             int index;
-            if (values.Length < 2 || values[1] == manager.Session.LocalPlayerId
+            // Its own word coming back is nothing new, unless it is catching up: then it was said before this world was loaded,
+            // by this game or by a player who had this number before.
+            if (values.Length < 2 || (values[1] == manager.Session.LocalPlayerId && !catchUp)
                 || !int.TryParse(key.Substring(KeyPrefix.Length), NumberStyles.Integer, CultureInfo.InvariantCulture, out index))
             {
                 return;
