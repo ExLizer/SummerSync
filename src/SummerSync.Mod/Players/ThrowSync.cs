@@ -43,6 +43,13 @@ namespace SummerSync.Unity.Players
         };
 
         private const string CookMachine = "Logic";
+
+        // Taking a battery out of the radio (decoded level of 2026-10-18, "ITEMS/radio(itemx)/ChangeBatteries/Remove :: Knob",
+        // "State 2"): a "CreateObject" of the spent one ("disposed battery") where the batteries come out, kept in no variable.
+        // Given a place to keep it, it is noticed as the rest; the others make it with its machines on. How many batteries the
+        // radio holds travels with the radio (data/jobs/radio.json).
+        private static readonly string[] SpentBatteryMakers = { "ITEMS/radio(itemx)/ChangeBatteries/Remove" };
+        private const string SpentBatteryMachine = "Knob";
         private const double SearchInterval = 2.0;
 
         // The fireworks bag (dump of 2026-10-15, "MISC/fireworks bag(itemx) :: Open"): a click takes a rocket out of it,
@@ -183,6 +190,25 @@ namespace SummerSync.Unity.Players
                 log.Info(LogCategory.Player, "What " + cooks + " fire(s) and grill(s) cook is shared.");
             }
 
+            for (int i = 0; i < SpentBatteryMakers.Length; i++)
+            {
+                int slash = SpentBatteryMakers[i].IndexOf('/');
+                GameObject root = GameObject.Find("/" + SpentBatteryMakers[i].Substring(0, slash));
+                Transform at = root == null ? null : root.transform.Find(SpentBatteryMakers[i].Substring(slash + 1));
+                PlayMakerFSM remove = at == null ? null : DoorSync.FindMachine(at, SpentBatteryMachine);
+                if (remove == null)
+                {
+                    log.Info(LogCategory.Player, "No '" + SpentBatteryMakers[i] + " :: " + SpentBatteryMachine + "' in this world: the batteries taken out of it are not shared.");
+                    continue;
+                }
+
+                // Its object is off until the cover is opened: its machine may not have started.
+                MSCLoader.PlayMakerExtensions.InitializeFSM(remove);
+                int before = throwers.Count;
+                AddThrowers(remove, false, true);
+                log.Info(LogCategory.Player, "The spent batteries taken out of '" + SpentBatteryMakers[i] + "' are shared (" + (throwers.Count - before) + " maker(s)).");
+            }
+
             found = throwers.Count > 0;
             if (found)
             {
@@ -232,6 +258,12 @@ namespace SummerSync.Unity.Players
         // The things a state machine makes with "CreateObject"; thrown ones are made elsewhere with their machines off.
         private void AddThrowers(PlayMakerFSM fsm, bool thrown)
         {
+            AddThrowers(fsm, thrown, false);
+        }
+
+        // With "keep", an action that keeps what it makes in no variable is given a place of its own to keep it in.
+        private void AddThrowers(PlayMakerFSM fsm, bool thrown, bool keep)
+        {
             FsmState[] states = fsm == null || fsm.Fsm == null ? null : fsm.Fsm.States;
             for (int s = 0; states != null && s < states.Length; s++)
             {
@@ -242,6 +274,11 @@ namespace SummerSync.Unity.Players
                     if (create == null || create.gameObject == null || create.gameObject.Value == null)
                     {
                         continue;
+                    }
+
+                    if (keep && (create.storeObject == null || create.storeObject.IsNone))
+                    {
+                        create.storeObject = new FsmGameObject();
                     }
 
                     throwers.Add(new Thrower { Action = create, Prefab = create.gameObject.Value, Last = create.storeObject == null ? null : create.storeObject.Value, Thrown = thrown });

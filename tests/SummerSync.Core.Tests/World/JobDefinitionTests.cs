@@ -240,6 +240,19 @@ public class JobDefinitionTests
         Assert.Equal("Owned", Assert.Single(watch.Values).Variable);
         Assert.True(Assert.Single(watch.Actives).Said);
 
+        // The battery radio: its cover, switch, channel and volume travel as the states they go to and their values; its
+        // batteries and its charge as values and the batteries shown in it, never by its "Add battery", which throws away
+        // the battery in the hand of whoever plays that game.
+        JobDefinition radio = jobs.Single(job => job.Name == "radio");
+        Assert.Equal("ITEMS", radio.Root);
+        Assert.Equal("radio(itemx)", radio.Path);
+        Assert.Contains(radio.Values, value => value.Path == "ChangeBatteries/Insert" && value.Variable == "Batteries" && value.Kind == JobValueKind.Said);
+        Assert.Contains(radio.Values, value => value.Variable == "Charge" && value.Scale == 100);
+        Assert.Equal(new[] { "Check channel", "Off" }, radio.Relays.Single(relay => relay.Path == "Power").States);
+        Assert.DoesNotContain(radio.Relays, relay => relay.States.Contains("Add battery"));
+        Assert.Equal(11, radio.Actives.Length);
+        Assert.All(radio.Actives, active => Assert.True(active.Said));
+
         // What used to be listed in the code: the hay bales, the furniture and the wells' things are loose.
         string[] loose = jobs.SelectMany(job => job.Loose).ToArray();
         Assert.Contains("JOBS/HayBales", loose);

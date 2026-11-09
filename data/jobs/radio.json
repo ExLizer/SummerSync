@@ -1,0 +1,35 @@
+{
+  "format": 1,
+  "name": "radio",
+  "root": "ITEMS",
+  "path": "radio(itemx)",
+  "values": [
+    { "path": "Open", "fsm": "Knob", "variable": "On", "kind": "said" },
+    { "path": "Power", "fsm": "Knob", "variable": "On", "kind": "said" },
+    { "path": "Power", "fsm": "Knob", "variable": "Channel", "kind": "said" },
+    { "path": "Play", "fsm": "Knob", "variable": "On", "kind": "said" },
+    { "path": "Volume", "fsm": "Knob", "variable": "Volume", "kind": "said", "scale": 100 },
+    { "path": "Play", "fsm": "Charge", "variable": "Volume", "kind": "said", "scale": 100 },
+    { "path": "Play", "fsm": "Charge", "variable": "Charge", "kind": "said", "scale": 100 },
+    { "path": "ChangeBatteries/Insert", "fsm": "Assembly", "variable": "Batteries", "kind": "said" }
+  ],
+  "relay": [
+    { "path": "Open", "fsm": "Knob", "states": ["On", "Off"] },
+    { "path": "Power", "fsm": "Knob", "states": ["Check channel", "Off"] },
+    { "path": "Play", "fsm": "Knob", "states": ["0", "1"] },
+    { "path": "Volume", "fsm": "Knob", "states": ["Rotate knob"] }
+  ],
+  "actives": [
+    { "path": "ChangeBatteries/Batteries/1", "said": true },
+    { "path": "ChangeBatteries/Batteries/2", "said": true },
+    { "path": "ChangeBatteries/Batteries/3", "said": true },
+    { "path": "ChangeBatteries/Batteries/4", "said": true },
+    { "path": "ChangeBatteries/Batteries/5", "said": true },
+    { "path": "ChangeBatteries/Batteries/6", "said": true },
+    { "path": "ChangeBatteries/Batteries/7", "said": true },
+    { "path": "ChangeBatteries/Batteries/8", "said": true },
+    { "path": "ChangeBatteries/Batteries/9", "said": true },
+    { "path": "ChangeBatteries/Batteries/10", "said": true },
+    { "path": "ChangeBatteries/Remove", "said": true }
+  ]
+}
