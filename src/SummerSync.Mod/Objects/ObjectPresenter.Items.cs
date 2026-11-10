@@ -46,7 +46,8 @@ namespace SummerSync.Unity.Objects
         // every game (its "Use" counts "Time", adds "Vinegar" with the lid off and works out the rest from them each loop;
         // dump of 2026-10-15), and a lit lantern counts "Burning" up to a "Burntime" each game rolls, with "Pos" its height.
         // The bucket's lid went back off in a game that had it on (log of 2026-11-08: "LidOn" from the other game's last
-        // brewing news). Of the coffee cup, "Pos" is its coffee over 3.75, worked out each frame.
+        // brewing news). Of the coffee cup, "Pos" is its coffee over 3.75, worked out as it is filled, and "CoffeeInPan" a
+        // copy of the pan's water, taken each frame of a pour.
         //
         // A car battery, the same (decoded level of 2026-10-18, "battery0 :: Use"): once a second its "Use" takes
         // "DischargeRate" off "Charge", and under 109 also wears it out ("ChargeMax" down, "DischargeRate" up), with nothing to
@@ -58,7 +59,7 @@ namespace SummerSync.Unity.Objects
         {
             "Condition", "Distance", "FridgeDistance", "SpoilingRate", "SpoilingRateFridge", "DestroyProgress",
             "Time", "Vinegar", "Alcohol", "Sweetness", "SugarWaterRatio", "Math0", "Math1", "Math2",
-            "Burning", "Burntime", "Pos",
+            "Burning", "Burntime", "Pos", "CoffeeInPan",
             "Charge", "ChargeMax", "DischargeRate",
         };
 
@@ -164,13 +165,14 @@ namespace SummerSync.Unity.Objects
                 }
             }
 
+            ApplyPan(item, news.Values);
             if (use != null)
             {
                 FsmVariables variables = use.FsmVariables;
                 for (int i = 0; i < news.Values.Count; i++)
                 {
                     ItemValue value = news.Values[i];
-                    if (value.Name.StartsWith(ContentsPrefix, System.StringComparison.Ordinal))
+                    if (value.Name.StartsWith(ContentsPrefix, System.StringComparison.Ordinal) || value.Name.StartsWith(PanPrefix, System.StringComparison.Ordinal))
                     {
                         continue;
                     }
@@ -202,6 +204,7 @@ namespace SummerSync.Unity.Objects
                 }
             }
 
+            ShowCup(item, use);
             if (!string.IsNullOrEmpty(news.Name) && thing.name != news.Name)
             {
                 thing.name = news.Name;
@@ -272,8 +275,8 @@ namespace SummerSync.Unity.Objects
             }
         }
 
-        // The thing's name and the values of its "Use" and of a can's fluid, as text to compare, and as values if a
-        // list is given. Null if it has neither. Whole: also what only a world that joins takes (Joining).
+        // The thing's name and the values of its "Use", of a can's fluid and of the coffee pan, as text to compare, and as
+        // values if a list is given. Null if it has none of them. Whole: also what only a world that joins takes (Joining).
         private string ReadItem(Tracked item, List<ItemValue> values)
         {
             return ReadItem(item, values, false);
@@ -283,7 +286,8 @@ namespace SummerSync.Unity.Objects
         {
             PlayMakerFSM use = UseOf(item);
             PlayMakerFSM contents = ContentsOf(item);
-            if (use == null && contents == null)
+            PlayMakerFSM pan = PanOf(item);
+            if (use == null && contents == null && pan == null)
             {
                 return null;
             }
@@ -309,6 +313,11 @@ namespace SummerSync.Unity.Objects
                         }
                     }
                 }
+            }
+
+            if (pan != null)
+            {
+                ReadPan(pan, values, whole);
             }
 
             if (use == null)
@@ -365,6 +374,7 @@ namespace SummerSync.Unity.Objects
         }
 
         private const string FuseHolderName = "fuse holder(Clone)";
+        private const string RemoteName = "tv remote control(itemx)";
 
         private PlayMakerFSM UseOf(Tracked item)
         {
@@ -372,8 +382,10 @@ namespace SummerSync.Unity.Objects
             {
                 item.UseSearched = true;
 
-                // A fuse holder's fuse and screw are the house's electricity's (ElectricitySync), shown the game's way.
-                if (item.Transform.name == FuseHolderName)
+                // A fuse holder's fuse and screw are the house's electricity's (ElectricitySync), shown the game's way. The
+                // television's remote keeps only whether the teletext is on, which is the television's (TelevisionSync): its
+                // machine starts over with it off each time the television goes on, in every game.
+                if (item.Transform.name == FuseHolderName || item.Transform.name == RemoteName)
                 {
                     return null;
                 }

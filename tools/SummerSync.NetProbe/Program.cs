@@ -136,6 +136,19 @@ internal static class Program
 
     private static int Main(string[] args)
     {
+        if (args.Length > 0 && args[0] == "load")
+        {
+            // netprobe load [clients] [seconds] [metres apart] [port]: a host and that many walking clients in this process.
+            return ProbeLoad.Run(args, new ConsoleSink());
+        }
+
+        if (args.Length > 6 && args[0] == "load-join")
+        {
+            // netprobe load-join <clients> <seconds> <x> <y> <z> <game folder> [metres apart] [port]: that many walking
+            // clients in this process, joining a game on this machine.
+            return ProbeLoad.Join(args, new ConsoleSink(), Options.IdentifyGame(args[6]));
+        }
+
         Options options;
         try
         {
@@ -1071,7 +1084,7 @@ internal static class Program
             return args[++index];
         }
 
-        private static string IdentifyGame(string gameFolder)
+        internal static string IdentifyGame(string gameFolder)
         {
             string[] candidates =
             [

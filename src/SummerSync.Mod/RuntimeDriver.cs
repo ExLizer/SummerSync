@@ -104,6 +104,8 @@ namespace SummerSync.Unity
         private bool electricityFailed;
         private MailboxSync mailboxes;
         private bool mailboxesFailed;
+        private TelevisionSync television;
+        private bool televisionFailed;
 
         // The session whose checksums have this world's sections (Fase 8).
         private ChecksumReplication checksFor;
@@ -658,6 +660,7 @@ namespace SummerSync.Unity
             cabinSmoke = new CabinSmoke(ModRuntime.Log, ModRuntime.Network.Manager, vehicles, players);
             electricity = new ElectricitySync(ModRuntime.Log, ModRuntime.Network.Manager);
             mailboxes = new MailboxSync(ModRuntime.Log, ModRuntime.Network.Manager);
+            television = new TelevisionSync(ModRuntime.Log, ModRuntime.Network.Manager);
             guests = new GuestSync(ModRuntime.Log, ModRuntime.Network.Manager);
             deaths = new DeathSync(ModRuntime.Log, ModRuntime.Network.Manager, vehicles, players);
             dents = new DentSync(ModRuntime.Log, ModRuntime.Network.Manager, vehicles);
@@ -1717,6 +1720,27 @@ namespace SummerSync.Unity
                 {
                     guestsFailed = true;
                     ModRuntime.Log.Error(LogCategory.Player, "Keeping the guests' needs and places with the host's save failed; a guest starts as the save's player until the main menu loads again. " + exception);
+                }
+            }
+
+            if (!televisionFailed)
+            {
+                try
+                {
+                    television.LateUpdate(ModRuntime.Network.Now, localPlayer);
+                }
+                catch (Exception exception)
+                {
+                    televisionFailed = true;
+                    ModRuntime.Log.Error(LogCategory.Fsm, "Sharing the television's film and teletext failed; each game has its own until the main menu loads again. " + exception);
+                    try
+                    {
+                        television.Release();
+                    }
+                    catch (Exception)
+                    {
+                        // Whatever broke may break the clean-up too.
+                    }
                 }
             }
 

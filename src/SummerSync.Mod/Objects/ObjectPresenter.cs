@@ -1500,6 +1500,17 @@ namespace SummerSync.Unity.Objects
 
             public bool UseSearched;
 
+            // The coffee pan's own: its machine "Data", and its lid's "Use" (ObjectPresenter.Coffee).
+            public PlayMakerFSM Pan;
+
+            public PlayMakerFSM Cap;
+
+            public bool PanSearched;
+
+            public bool CapHooked;
+
+            public bool CapComplained;
+
             /// <summary>
             /// One of the jobs' things (a hay bale, the drunk's furniture), found in its job's container
             /// (<see cref="JobParent"/>): loose there whatever its layer and tag.
