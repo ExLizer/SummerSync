@@ -56,6 +56,9 @@
     { "towed": "FLATBED", "towedPoint": "HookTarget", "path": "Trailer/Hook", "machine": "Distance", "variable": "TrailerAttached", "attach": "Sound",
       "release": { "path": "Trailer/Remove", "machine": "Use", "state": "Close door" } }
   ],
+  "seats": [
+    { "name": "roof", "player": [0, 2.0, -0.85], "reach": 2.0, "below": 2.7 }
+  ],
   "crash": { "head": 800, "helmet": 1100 },
   "driver": {
     "pedals": [

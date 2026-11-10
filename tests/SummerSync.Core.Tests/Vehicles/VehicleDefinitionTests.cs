@@ -569,16 +569,27 @@ public class VehicleDefinitionTests
                 // Not where the driver sits: a metre of the measured feet would put two people on one seat.
                 float across = seat.Player[0] - vehicle.Seat![0];
                 float along = seat.Player[2] - vehicle.Seat[2];
-                Assert.True((across * across) + (along * along) > 0.25f * 0.25f, file + " " + seat.Name);
-                if (vehicle.HasInterior)
+                if (seat.Name == "roof")
                 {
+                    // On top of it, over the driver if need be: above the inside, and offered from the ground beside it.
+                    Assert.False(vehicle.Interior.Contains(seat.Player[0], seat.Player[1], seat.Player[2], 0f), file + " " + seat.Name);
+                    Assert.True(seat.Below > seat.Player[1], file + " " + seat.Name);
+                }
+                else
+                {
+                    Assert.True((across * across) + (along * along) > 0.25f * 0.25f, file + " " + seat.Name);
+                }
+
+                if (seat.Name != "roof" && vehicle.HasInterior)
+                {
+                    Assert.Equal(VehicleDefinition.DefaultSeatBelow, seat.Below);
                     Assert.True(vehicle.Interior.Contains(seat.Player[0], seat.Player[1], seat.Player[2], 0.1f), file + " " + seat.Name);
                 }
             }
         }
 
-        // The tractor has no seat but the driver's: whoever rides it stands.
-        Assert.DoesNotContain("kekmet", withSeats);
+        // The tractor has no seat inside but the driver's: whoever rides it stands, or sits on its roof.
+        Assert.Equal(1, withSeats.Count(n => n == "kekmet"));
         Assert.Contains("van", withSeats);
         Assert.Contains("jonnez", withSeats);
         Assert.Equal(3, withSeats.Count(n => n == "satsuma"));

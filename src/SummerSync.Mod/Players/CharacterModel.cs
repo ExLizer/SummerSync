@@ -379,6 +379,16 @@ namespace SummerSync.Unity.Players
             }
         }
 
+        /// <summary>Shows the middle finger for as long as the game holds it up.</summary>
+        public void ShowFinger()
+        {
+            PlayerActions actions = PlayerActions.Current;
+            if (activity != null && actions != null)
+            {
+                activity.ShowFinger(actions.FingerSeconds);
+            }
+        }
+
         public void Hide()
         {
             if (root != null && root.activeSelf)

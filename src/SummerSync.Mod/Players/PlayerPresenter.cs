@@ -94,6 +94,16 @@ namespace SummerSync.Unity.Players
             }
         }
 
+        /// <summary>
+        /// A player said something with the game's keys (<see cref="SpeechSync"/>): played where they are shown, with the
+        /// gesture if it has one. Returns what could not be done, or null.
+        /// </summary>
+        public string Say(byte id, int kind, int variation)
+        {
+            PlayerAvatar avatar;
+            return avatars.TryGetValue(id, out avatar) && avatar.IsAlive ? avatar.Say(kind, variation) : null;
+        }
+
         public Transform LocalPlayer
         {
             get { return localInWorld ? probe.Body : null; }

@@ -417,6 +417,12 @@ namespace SummerSync.Core.Vehicles
         public float Reach { get; internal set; }
 
         /// <summary>
+        /// How far below the seat a player's root may be to be offered it. A seat nobody can stand at (a roof) is offered
+        /// from the ground beside the vehicle.
+        /// </summary>
+        public float Below { get; internal set; }
+
+        /// <summary>
         /// Paths, below the root, of which one has to have something under it for the seat to be there (the Satsuma's
         /// seats are parts, put on their pivots). Empty for a seat that is always there. Never null.
         /// </summary>
@@ -632,6 +638,9 @@ namespace SummerSync.Core.Vehicles
         /// <summary>How near a seat a player stands to be offered it, if its file does not say.</summary>
         public const float DefaultSeatReach = 0.45f;
 
+        /// <summary>How far below a seat a player's root may be to be offered it, if its file does not say.</summary>
+        public const float DefaultSeatBelow = 0.5f;
+
         /// <exception cref="FormatException">The text is not a vehicle definition. The message says why.</exception>
         public static VehicleDefinition Parse(string json)
         {
@@ -794,6 +803,7 @@ namespace SummerSync.Core.Vehicles
                         Name = JsonReader.String(one, "name", what),
                         Player = new[] { (float)player[0], (float)player[1], (float)player[2] },
                         Reach = one.ContainsKey("reach") ? (float)JsonReader.Number(one, "reach", what) : DefaultSeatReach,
+                        Below = one.ContainsKey("below") ? (float)JsonReader.Number(one, "below", what) : DefaultSeatBelow,
                         Needs = Texts(one, "needs", what),
                         BeltPath = Optional(one, "beltPath", what),
                     };
@@ -807,6 +817,11 @@ namespace SummerSync.Core.Vehicles
                     if (seat.Name.Length == 0 || seat.Reach <= 0f || seat.Reach > 2f)
                     {
                         throw new FormatException(what + " needs a name and a reach from above 0 to 2 m.");
+                    }
+
+                    if (seat.Below < 0f || seat.Below > 4f)
+                    {
+                        throw new FormatException(what + " can be offered from 0 to 4 m below it.");
                     }
 
                     if ((seat.Belt == SeatBelt.None) != (seat.BeltPath == null))

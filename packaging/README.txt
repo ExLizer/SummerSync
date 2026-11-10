@@ -56,7 +56,8 @@ Playing
   works in the main menu too, once you are connected, and the game does not
   react to what you type. The key can be changed in the mod's keys.
 - Passenger seats: stand by a free passenger seat and press the driving mode
-  key ("ENTER PASSENGER MODE"). The seat belt works like the driver's.
+  key ("ENTER PASSENGER MODE"). The seat belt works like the driver's. The
+  tractor's roof is a seat too: stand beside or behind the tractor.
 - Permanent death: on the host's save card, "Permanent death: YES/NO". With it
   off, a player who dies wakes up at home.
 - Only the host saves the world. Going back to the main menu ends the session.

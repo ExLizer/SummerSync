@@ -18,7 +18,9 @@ namespace SummerSync.Unity.Players
     /// ("BeerBottle", "HandJuice/JuiceCan"…); "Smoking" is switched on only while the player smokes, and its machine
     /// "Start" draws on the cigarette in "Inhale" and breathes the smoke out in "Outhale" (from "BreathSmoke"); under the
     /// camera ("FPSCamera"), "Piss/Fluid" is switched on only while the player pees (machine "Logic"), its own "Fluid"
-    /// the stream, and "PLAYER/PeeSound" is its sound.
+    /// the stream, and "PLAYER/PeeSound" is its sound. For the middle finger the game switches on "MiddleFinger" under the
+    /// eyes and plays the clip "middlefinger" on its "Pivot", which holds the hand ("hand": a forearm "Armature/Bone", the
+    /// wrist "Bone_001" under it and the fingers under that, already shaped).
     /// </summary>
     internal sealed class PlayerActions
     {
@@ -41,6 +43,10 @@ namespace SummerSync.Unity.Players
         private const string StreamEmitterPath = "Piss/Fluid/Fluid";
         private const string PeeSoundPath = "PeeSound";
         private const string SmokingMachine = "Start";
+        private const string FingerPivotPath = "MiddleFinger/Pivot";
+        private const string FingerHandName = "hand";
+        private const string FingerClip = "middlefinger";
+        private const float FingerSecondsUnknown = 1.5f;
 
         // The hand's clips that bring a drink up to the mouth and back (machine "Drink"): they move and turn only the hand,
         // which holds the drinks. The cups and the shot glass get the shorter one, the same move tipped less.
@@ -98,6 +104,11 @@ namespace SummerSync.Unity.Players
             Transform sound = player.Find(PeeSoundPath);
             PeeSound = sound == null ? null : sound.GetComponent<AudioSource>();
             drinkOn = FsmVariables.GlobalVariables.FindFsmBool("PlayerDrinkOn");
+            Transform fingerPivot = eyes == null ? null : eyes.Find(FingerPivotPath);
+            FingerHand = fingerPivot == null ? null : fingerPivot.Find(FingerHandName);
+            Animation fingerClips = fingerPivot == null ? null : fingerPivot.GetComponent<Animation>();
+            AnimationState finger = fingerClips == null ? null : fingerClips[FingerClip];
+            FingerSeconds = finger == null || finger.length < 0.3f ? FingerSecondsUnknown : finger.length;
             drinkTurn = new Quaternion[Drinks.Length];
             drinkRest = new Quaternion[Drinks.Length];
             drinkLips = new Vector3[Drinks.Length];
@@ -125,6 +136,12 @@ namespace SummerSync.Unity.Players
 
         public AudioSource PeeSound { get; private set; }
 
+        /// <summary>The hand that shows the middle finger, to be copied; null if the game has none.</summary>
+        public Transform FingerHand { get; private set; }
+
+        /// <summary>For how long the game holds that hand up.</summary>
+        public float FingerSeconds { get; private set; }
+
         // Unity's null check is also true for a destroyed object.
         private bool Alive
         {
@@ -147,7 +164,8 @@ namespace SummerSync.Unity.Players
                 + "; smoking " + (current.smoking == null ? "NOT FOUND" : current.Cigarette == null ? "found, without its cigarette" : "found") + Emitter(", breath", current.Breath)
                 + "; peeing " + (current.stream == null ? "NOT FOUND" : "found") + Emitter(", stream", current.Stream)
                 + (current.PeeSound == null ? ", no sound" : ", sound '" + (current.PeeSound.clip == null ? "none" : current.PeeSound.clip.name) + "' (loop " + current.PeeSound.loop
-                   + ", volume " + Format(current.PeeSound.volume) + ")") + "; " + (current.drinkPoseProblem ?? "how each drink is held at the mouth read from the hand's clips") + ".");
+                   + ", volume " + Format(current.PeeSound.volume) + ")") + "; " + (current.drinkPoseProblem ?? "how each drink is held at the mouth read from the hand's clips")
+                + "; the middle finger's hand " + (current.FingerHand == null ? "NOT FOUND" : "found, held up " + Format(current.FingerSeconds) + " s") + ".");
             return current;
         }
 

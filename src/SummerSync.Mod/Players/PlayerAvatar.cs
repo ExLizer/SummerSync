@@ -17,6 +17,12 @@ namespace SummerSync.Unity.Players
         private const float AboveEyes = 0.12f;
         private const float LabelAboveHead = 0.25f;
 
+        // The game keeps each recording on an object of its own under its sound player. A voice is heard whole up close
+        // and fades out with the distance.
+        private const string VoiceRoot = "MasterAudio/";
+        private const float VoiceNear = 2f;
+        private const float VoiceFar = 40f;
+
         private static readonly Color VisorColor = new Color(0.08f, 0.08f, 0.08f);
 
         private readonly GameObject root;
@@ -31,6 +37,7 @@ namespace SummerSync.Unity.Players
         private string labelText;
         private CharacterModel model;
         private int look = int.MinValue;
+        private AudioSource voice;
 
         public PlayerAvatar(Transform parent, string objectName, Shader shader, Color color)
         {
@@ -200,6 +207,58 @@ namespace SummerSync.Unity.Players
             {
                 model.Place(pose, offset, Time.deltaTime, seatYaw, cockpit);
             }
+        }
+
+        /// <summary>
+        /// The player says that (<see cref="SpeechSync"/>): the game's own recording, from where their head is, and the
+        /// middle finger held up if it goes with it. Returns what could not be done, or null.
+        /// </summary>
+        public string Say(int kind, int variation)
+        {
+            string group;
+            float volume;
+            int variations;
+            if (!SpeechSync.Describe(kind, out group, out volume, out variations) || !IsShown)
+            {
+                return null;
+            }
+
+            if (kind == SpeechSync.Finger && model != null && model.IsAlive)
+            {
+                model.ShowFinger();
+            }
+
+            string name = variation.ToString(CultureInfo.InvariantCulture);
+            GameObject kept = GameObject.Find(VoiceRoot + group + "/" + name);
+            AudioSource recorded = kept == null ? null : kept.GetComponent<AudioSource>();
+            if (recorded == null || recorded.clip == null)
+            {
+                // Not kept as expected: the game's own player for it, wherever it makes it heard.
+                MasterAudio.PlaySound3DFollowTransformAndForget(group, head, volume, 1f, 0f, name);
+                return "the recording was not found under '" + VoiceRoot + group + "/" + name + "'; the game's sound player was asked for it.";
+            }
+
+            if (voice == null)
+            {
+                var made = new GameObject("Voice");
+                made.transform.parent = head;
+                made.transform.localPosition = Vector3.zero;
+                voice = made.AddComponent<AudioSource>();
+                voice.playOnAwake = false;
+                voice.loop = false;
+                voice.spatialBlend = 1f;
+                voice.dopplerLevel = 0f;
+                voice.rolloffMode = AudioRolloffMode.Linear;
+                voice.minDistance = VoiceNear;
+                voice.maxDistance = VoiceFar;
+            }
+
+            voice.Stop();
+            voice.clip = recorded.clip;
+            voice.outputAudioMixerGroup = recorded.outputAudioMixerGroup;
+            voice.volume = volume;
+            voice.Play();
+            return null;
         }
 
         public void Hide()

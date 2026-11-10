@@ -9,12 +9,15 @@ namespace SummerSync.Unity.Players
     /// Another player drinking, smoking or peeing, on the copy of a person that stands for them: the right hand brings
     /// what they drink from up to the mouth, bottom up; a cigarette rests in the right hand by the chest, goes to the lips
     /// while they draw on it and the smoke comes out of the mouth after; peeing, both hands go to the crotch and the
-    /// stream comes out where the player looks, with its sound. The things are the game's own (what the local player's
+    /// stream comes out where the player looks, with its sound. And the middle finger: the left arm comes up in front
+    /// with the game's own hand for it at the wrist, in place of the copy's. The things are the game's own (what the local player's
     /// hand drinks from, smokes, pees: <see cref="PlayerActions"/>), copied without anything but their looks.
     ///
     /// Like <see cref="DriverPose"/>, it moves the arms after the clips have been played on them in the same frame,
     /// reaching with two bones, and blends from the clip to that. Every clip of the copies moves the upper arms and the
-    /// forearms, so those start from it again in every frame; the hands are left as the clips have them.
+    /// forearms, so those start from it again in every frame; the hands are left as the clips have them. A clip that is
+    /// not being played moves nothing, though (a person standing still): an arm nothing has moved since this put it
+    /// somewhere starts again from where this found it.
     /// </summary>
     internal sealed class ActivityPose
     {
@@ -23,6 +26,15 @@ namespace SummerSync.Unity.Players
         private const float DownSeconds = 0.35f;
         private const float LipsSeconds = 0.3f;
         private const float HandsSeconds = 0.4f;
+
+        // The left arm up for the middle finger and down again.
+        private const float FingerUpSeconds = 0.2f;
+        private const float FingerDownSeconds = 0.3f;
+
+        // The forearm of the game's hand is drawn this much of its length: the copy has a forearm of its own.
+        private const float FingerForearm = 0.04f;
+        private const string FingerForearmPath = "Armature/Bone";
+        private const string FingerWristName = "Bone_001";
 
         // The mouth from the head bone: ahead along where the body looks, and down.
         private const float MouthAhead = 0.11f;
@@ -66,6 +78,23 @@ namespace SummerSync.Unity.Players
         private float breathLeft;
         private bool streaming;
         private bool moved;
+        private float finger;
+        private float fingerLeft;
+        private Transform fingerHand;
+        private Transform fingerWrist;
+        private Quaternion fingerTurn = Quaternion.identity;
+        private bool fingerFailed;
+        private bool handHidden;
+
+        // For each arm, left and right: how its two bones were before this moved them, how this left them, and whether
+        // it moved them in the last frame and in this one.
+        private readonly Quaternion[] upperFound = new Quaternion[2];
+        private readonly Quaternion[] lowerFound = new Quaternion[2];
+        private readonly Quaternion[] upperLeft = new Quaternion[2];
+        private readonly Quaternion[] lowerLeft = new Quaternion[2];
+        private readonly bool[] armHeld = new bool[2];
+        private readonly bool[] armMoved = new bool[2];
+        private Vector3 handScale = Vector3.one;
 
         public ActivityPose(PoseRig rig, Transform root, Transform head, Logger log)
         {
@@ -76,12 +105,19 @@ namespace SummerSync.Unity.Players
             layer = rig.Hand[1] != null ? rig.Hand[1].gameObject.layer : root.gameObject.layer;
         }
 
+        /// <summary>Holds the middle finger up for that long from now.</summary>
+        public void ShowFinger(float seconds)
+        {
+            fingerLeft = seconds;
+        }
+
         /// <summary>
         /// Once per frame, after the clips (and the hands at the wheel) have been put on the bones. <paramref name="face"/>:
         /// where the body faces, in degrees about Y.
         /// </summary>
         public void Apply(PlayerPose pose, float face, float deltaTime)
         {
+            StartArms();
             bool drinking = pose.Activity == PlayerActivity.Drinking;
             bool smoking = pose.Activity == PlayerActivity.Smoking;
             bool peeing = pose.Activity == PlayerActivity.Peeing;
@@ -173,7 +209,53 @@ namespace SummerSync.Unity.Players
 
             // Where the player looks, as the game's stream hangs from the camera.
             Stream(peeing && pee >= 0.5f, crotch + (ahead * 0.04f), look);
-            moved = drink > 0f || smoke > 0f || pee > 0f || breathLeft > 0f || streaming;
+
+            fingerLeft = Mathf.Max(0f, fingerLeft - deltaTime);
+            bool raised = fingerLeft > 0f && pee <= 0f;
+            finger = Mathf.MoveTowards(finger, raised ? 1f : 0f, deltaTime / (raised ? FingerUpSeconds : FingerDownSeconds));
+            if (finger > 0f)
+            {
+                // The left hand up in front of the shoulder, the forearm upright, the back of the hand ahead.
+                float weight = Mathf.SmoothStep(0f, 1f, finger);
+                Vector3 wrist = rig.Shoulder[0].position + (ahead * 0.3f) + (up * 0.12f) - (right * 0.03f);
+                Arm(0, wrist, -(right * 0.7f) - (up * 0.7f), weight);
+                ShowFingerHand(finger >= 0.5f, (up + (ahead * 0.25f)).normalized, ahead);
+            }
+            else
+            {
+                ShowFingerHand(false, up, ahead);
+            }
+
+            moved = drink > 0f || smoke > 0f || pee > 0f || breathLeft > 0f || streaming || finger > 0f;
+            armHeld[0] = armMoved[0];
+            armHeld[1] = armMoved[1];
+        }
+
+        // Before the arms are moved in a frame: one that this moved in the last frame and no clip has moved since is put
+        // back as this found it; otherwise how it is now is how it was found.
+        private void StartArms()
+        {
+            for (int s = 0; s < 2; s++)
+            {
+                Transform upper = rig.Shoulder[s];
+                Transform lower = rig.Arm[s];
+                armMoved[s] = false;
+                if (upper == null || lower == null)
+                {
+                    continue;
+                }
+
+                if (armHeld[s] && upper.localRotation == upperLeft[s] && lower.localRotation == lowerLeft[s])
+                {
+                    upper.localRotation = upperFound[s];
+                    lower.localRotation = lowerFound[s];
+                }
+                else
+                {
+                    upperFound[s] = upper.localRotation;
+                    lowerFound[s] = lower.localRotation;
+                }
+            }
         }
 
         /// <summary>Nothing held, nothing coming out: not shown, or the character window.</summary>
@@ -184,7 +266,16 @@ namespace SummerSync.Unity.Players
             lips = 0f;
             pee = 0f;
             breathLeft = 0f;
+            finger = 0f;
+            fingerLeft = 0f;
             lastSmoke = PlayerPose.SmokeHolding;
+            if (armHeld[0] || armHeld[1])
+            {
+                StartArms();
+                armHeld[0] = false;
+                armHeld[1] = false;
+            }
+
             if (!moved)
             {
                 return;
@@ -195,6 +286,7 @@ namespace SummerSync.Unity.Players
             ShowCigarette(false, Vector3.zero, Vector3.forward);
             Breathe(false, Vector3.zero, Quaternion.identity);
             Stream(false, Vector3.zero, Quaternion.identity);
+            ShowFingerHand(false, Vector3.up, Vector3.back);
         }
 
         // Reaches with the arm of that side for a wrist at the target, blended from the clip by the weight; returns where
@@ -209,6 +301,9 @@ namespace SummerSync.Unity.Players
             Reach(upper, lower, hand, wrist, pole);
             upper.localRotation = Quaternion.Slerp(upperClip, upper.localRotation, weight);
             lower.localRotation = Quaternion.Slerp(lowerClip, lower.localRotation, weight);
+            upperLeft[s] = upper.localRotation;
+            lowerLeft[s] = lower.localRotation;
+            armMoved[s] = true;
             Vector3 along = (hand.position - lower.position).normalized;
             return hand.position + (along * HandReach);
         }
@@ -290,6 +385,108 @@ namespace SummerSync.Unity.Players
                 cigarette.rotation = Quaternion.FromToRotation(cigaretteTip, tip);
                 cigarette.position = grip;
             }
+        }
+
+        // The game's hand for the middle finger at the left wrist, the finger that way and its back that way, with the
+        // copy's own left hand drawn as nothing meanwhile.
+        private void ShowFingerHand(bool shown, Vector3 fingerTo, Vector3 backTo)
+        {
+            Transform own = rig.Hand[0];
+            if (fingerHand == null && shown && !fingerFailed)
+            {
+                MakeFingerHand();
+            }
+
+            // Unity's null check is also true for a destroyed object.
+            bool there = fingerHand != null && fingerWrist != null;
+            if (there && fingerHand.gameObject.activeSelf != shown)
+            {
+                fingerHand.gameObject.SetActive(shown);
+            }
+
+            if (handHidden != (shown && there) && own != null)
+            {
+                handHidden = shown && there;
+                if (handHidden)
+                {
+                    handScale = own.localScale;
+                    own.localScale = handScale * 0.001f;
+                }
+                else
+                {
+                    own.localScale = handScale;
+                }
+            }
+
+            if (shown && there && own != null)
+            {
+                fingerHand.rotation = Quaternion.LookRotation(fingerTo, backTo) * fingerTurn;
+                fingerHand.position += own.position - fingerWrist.position;
+            }
+        }
+
+        // The game's hand copied, its forearm drawn as a stub, and how it is turned read from its own bones: the finger
+        // held out is the one whose tip is furthest from the wrist, and the back of the hand is where the other fingers' last bones
+        // are, off that line (seen in the game: they curl round to the palm from there).
+        private void MakeFingerHand()
+        {
+            PlayerActions actions = PlayerActions.Current;
+            Transform source = actions == null ? null : actions.FingerHand;
+            if (source == null)
+            {
+                fingerFailed = true;
+                return;
+            }
+
+            Transform made = Copy(source, "Middle finger");
+            Transform forearm = made.Find(FingerForearmPath);
+            Transform wrist = forearm == null ? null : forearm.Find(FingerWristName);
+            if (wrist == null)
+            {
+                Object.Destroy(made.gameObject);
+                fingerFailed = true;
+                log.Warning(Category, "The game's hand for the middle finger is not made as this build expects ('" + FingerForearmPath + "/" + FingerWristName + "'): the others raise their arm without it.");
+                return;
+            }
+
+            forearm.localScale = forearm.localScale * FingerForearm;
+            wrist.localScale = wrist.localScale / FingerForearm;
+            Transform[] bones = wrist.GetComponentsInChildren<Transform>(true);
+            Vector3 furthest = Vector3.zero;
+            Vector3 others = Vector3.zero;
+            int tips = 0;
+            for (int i = 0; i < bones.Length; i++)
+            {
+                if (bones[i].childCount > 0 || bones[i] == wrist)
+                {
+                    continue;
+                }
+
+                Vector3 tip = bones[i].position - wrist.position;
+                others += tip;
+                tips++;
+                if (tip.sqrMagnitude > furthest.sqrMagnitude)
+                {
+                    furthest = tip;
+                }
+            }
+
+            if (tips < 2 || furthest.sqrMagnitude < 1e-6f)
+            {
+                Object.Destroy(made.gameObject);
+                fingerFailed = true;
+                log.Warning(Category, "The game's hand for the middle finger has no fingers this build can read: the others raise their arm without it.");
+                return;
+            }
+
+            Vector3 along = furthest.normalized;
+            Vector3 rest = (others - furthest) / (tips - 1);
+            Vector3 back = rest - (along * Vector3.Dot(rest, along));
+            back = back.sqrMagnitude < 1e-8f ? Vector3.Cross(along, Vector3.right) : back;
+            fingerTurn = Quaternion.Inverse(Quaternion.LookRotation(along, back.normalized)) * made.rotation;
+            fingerHand = made;
+            fingerWrist = wrist;
+            log.Info(Category, "A player shows the middle finger on a copy here: the game's hand with " + tips + " finger tips, its finger " + Format(furthest.magnitude) + " m from the wrist.");
         }
 
         private void Breathe(bool breathing, Vector3 mouth, Quaternion look)

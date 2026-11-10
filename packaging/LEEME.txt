@@ -60,7 +60,8 @@ Cómo se juega
   reacciona a lo que escribís. La tecla se cambia en las teclas del mod.
 - Asientos de acompañante: parate al lado de un asiento libre y apretá la tecla
   del modo de manejo ("ENTER PASSENGER MODE"). El cinturón funciona como el del
-  conductor.
+  conductor. El techo del tractor también es un asiento: parate al costado o
+  atrás del tractor.
 - Muerte permanente: en la tarjeta de la partida del host, "Muerte permanente:
   SÍ/NO". Sin ella, el jugador que muere despierta en su casa.
 - Solo el host guarda el mundo. Volver al menú principal corta la sesión.

@@ -35,8 +35,8 @@ namespace SummerSync.Unity.Vehicles
         // Getting out is refused faster than this along any axis, as the game refuses it to a driver.
         private const float SeatLeaveSpeed = 0.15f;
 
-        // How far above or below a seat the player's root may be to be offered it: standing, it is higher.
-        private const float SeatBelow = 0.5f;
+        // How far above a seat the player's root may be to be offered it: standing, it is higher. How far below is the
+        // seat's own.
         private const float SeatAbove = 1.4f;
 
         private Tracked seatedIn;
@@ -195,7 +195,7 @@ namespace SummerSync.Unity.Vehicles
                     float z = local.z - at[2];
                     float across = (x * x) + (z * z);
                     float up = local.y - at[1];
-                    if (across > seats[s].Reach * seats[s].Reach || up < -SeatBelow || up > SeatAbove || across >= nearest)
+                    if (across > seats[s].Reach * seats[s].Reach || up < -seats[s].Below || up > SeatAbove || across >= nearest)
                     {
                         continue;
                     }

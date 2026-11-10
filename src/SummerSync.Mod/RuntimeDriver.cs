@@ -106,6 +106,8 @@ namespace SummerSync.Unity
         private bool mailboxesFailed;
         private TelevisionSync television;
         private bool televisionFailed;
+        private SpeechSync speech;
+        private bool speechFailed;
 
         // The session whose checksums have this world's sections (Fase 8).
         private ChecksumReplication checksFor;
@@ -661,6 +663,7 @@ namespace SummerSync.Unity
             electricity = new ElectricitySync(ModRuntime.Log, ModRuntime.Network.Manager);
             mailboxes = new MailboxSync(ModRuntime.Log, ModRuntime.Network.Manager);
             television = new TelevisionSync(ModRuntime.Log, ModRuntime.Network.Manager);
+            speech = new SpeechSync(ModRuntime.Log, ModRuntime.Network.Manager, players);
             guests = new GuestSync(ModRuntime.Log, ModRuntime.Network.Manager);
             deaths = new DeathSync(ModRuntime.Log, ModRuntime.Network.Manager, vehicles, players);
             dents = new DentSync(ModRuntime.Log, ModRuntime.Network.Manager, vehicles);
@@ -1720,6 +1723,27 @@ namespace SummerSync.Unity
                 {
                     guestsFailed = true;
                     ModRuntime.Log.Error(LogCategory.Player, "Keeping the guests' needs and places with the host's save failed; a guest starts as the save's player until the main menu loads again. " + exception);
+                }
+            }
+
+            if (!speechFailed)
+            {
+                try
+                {
+                    speech.LateUpdate(ModRuntime.Network.Now, localPlayer);
+                }
+                catch (Exception exception)
+                {
+                    speechFailed = true;
+                    ModRuntime.Log.Error(LogCategory.Player, "Sharing what the players say failed; nobody hears the others' swearing until the main menu loads again. " + exception);
+                    try
+                    {
+                        speech.Release();
+                    }
+                    catch (Exception)
+                    {
+                        // Whatever broke may break the clean-up too.
+                    }
                 }
             }
 
