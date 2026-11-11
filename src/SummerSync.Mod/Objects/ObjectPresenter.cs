@@ -258,6 +258,7 @@ namespace SummerSync.Unity.Objects
                 Drive(tracked[i], i);
             }
 
+            KeepWiringTool();
             WatchItems();
             TellJoined();
 
@@ -446,6 +447,7 @@ namespace SummerSync.Unity.Objects
         /// <summary>Gives every object back to the game, as it was.</summary>
         public void ReleaseAll()
         {
+            ReleaseWiringTool();
             for (int i = 0; i < tracked.Count; i++)
             {
                 Restore(tracked[i]);
@@ -648,6 +650,7 @@ namespace SummerSync.Unity.Objects
             item.KeepWhenGone = IsCarPart(name) || World.MountSync.IsMountable(name, log);
             tracked.Add(item);
             byBody[body.GetInstanceID()] = item;
+            NoteWiringMess(item);
         }
 
         // Whether something above it is a shared loose thing.
@@ -1361,6 +1364,11 @@ namespace SummerSync.Unity.Objects
             if (lastInHand == item)
             {
                 lastInHand = null;
+            }
+
+            if (wiringMess == item)
+            {
+                ReleaseWiringTool();
             }
 
             byBody.Remove(item.BodyId);

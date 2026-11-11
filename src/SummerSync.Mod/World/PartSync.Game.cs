@@ -885,7 +885,9 @@ namespace SummerSync.Unity.World
             }
         }
 
-        // Makes a wire the way the game does once both ends meet: one end taken to the state that finishes it.
+        // Makes a wire the way the game does once both ends meet: one end taken to the state that finishes it. Someone else
+        // made it: the game's spark, if the battery is on, goes where the copy here of their wiring tool is, and its chance
+        // of death is theirs (PartSync.Shock).
         private bool Connect(Slot slot, out string why)
         {
             PartWiring wiring = slot.Entry.Wiring;
@@ -893,8 +895,19 @@ namespace SummerSync.Unity.World
             {
                 Transform at = Resolve(wiring.Ends[e], -1);
                 PlayMakerFSM machine = at == null ? null : DoorSync.FindMachine(at, PartWiring.Machine);
-                if (machine != null && machine.enabled && machine.gameObject.activeInHierarchy && ToState(machine, wiring.State, null, null))
+                if (machine == null || !machine.enabled || !machine.gameObject.activeInHierarchy)
                 {
+                    continue;
+                }
+
+                SpareShock();
+                if (ToState(machine, wiring.State, null, null))
+                {
+                    if (SparkAtTool())
+                    {
+                        log.Info(Category, "Car: the wire '" + slot.Entry.Name + "' sparked here with the battery on, as for whoever made it; its chance of killing is left to their game.");
+                    }
+
                     why = null;
                     return true;
                 }

@@ -9,7 +9,7 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <Version>0.2.17</Version>
+    <Version>0.2.18</Version>
     <Product>SummerSync</Product>
     <Authors>Julian</Authors>
     <Description>Multiplayer mod for My Summer Car.</Description>

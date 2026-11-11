@@ -243,6 +243,7 @@ namespace SummerSync.Unity.World
             disassembling = pointing || disassembleBefore || now - rightClickAt <= RightClickSeconds || build != null;
             disassembleBefore = pointing;
             Work(now);
+            WorkShock();
             WorkPaint(now);
             bool runsCar = vehicles.SimulatesRoot(car);
             values.Update(now, runsCar);
@@ -334,6 +335,7 @@ namespace SummerSync.Unity.World
             values.Clear();
             bends.Release();
             ReleasePaint();
+            ReleaseShock();
             loaded = false;
             slots = null;
             car = null;
