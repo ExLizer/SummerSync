@@ -30,6 +30,12 @@ namespace SummerSync.Unity.World
     /// and the host's order takes it. When the host's order is at the post office, every client's timer is taken to "Pay"
     /// with the host's list, and whoever pays tells the others ("Paid"), so that every game takes the same boxes out the
     /// game's way. A box opened in one game is opened in the others.
+    ///
+    /// The letter of an order (docs/GAME_NOTES.md, "El sobre de un pedido"): the order button of the magazine
+    /// ("Sheets/Magazine/ButtonOrder :: Button", "State 3") switches on an envelope that hangs, switched off, from the
+    /// magazine ("Data.ThisEnvelope"), and the post box switches it off again. In a session, the game that orders says
+    /// so with what was ordered, and every game switches its own envelope on, where its magazine is; from there it is
+    /// one more loose object, carried by anyone. Whichever game posts it posts that order, and the envelope goes in all.
     /// </summary>
     internal sealed class OrderSync
     {
@@ -55,6 +61,18 @@ namespace SummerSync.Unity.World
         // A client's post is read this long after its timer switched on: the post box copies the list in that frame.
         private const double PostReadDelay = 0.3;
 
+        // The letter: the order button's machine and the state its click ends in, the list the magazine fills, and the
+        // envelope and its flag in the order's data.
+        private const string ButtonMachine = "Button";
+        private const string OrderedState = "State 3";
+        private const string OrderedList = "Order";
+        private const string EnvelopeVariable = "ThisEnvelope";
+        private const string ActivatedVariable = "Activated";
+        private const string LetterKey = "/letter";
+        private const string LetterTag = "PART";
+        private const string NoTag = "Untagged";
+        private static readonly HashSet<int> ButtonsHooked = new HashSet<int>();
+
         private static readonly HashSet<int> BoxesHooked = new HashSet<int>();
         private static readonly HashSet<int> CountersHooked = new HashSet<int>();
         private const string CounterMachine = "Use";
@@ -63,10 +81,11 @@ namespace SummerSync.Unity.World
 
         private readonly Logger log;
         private readonly NetworkManager manager;
+        private readonly Objects.ObjectPresenter objects;
         private readonly Order[] orders =
         {
-            new Order("parts", "Sheets/OrderList", true),
-            new Order("computer", "Sheets/OrderComputer", false),
+            new Order("parts", "Sheets/OrderList", true, "Magazine/ButtonOrder"),
+            new Order("computer", "Sheets/OrderComputer", false, "ComputerAD/ButtonOrder"),
         };
 
         private readonly List<GameObject> boxes = new List<GameObject>();
@@ -79,11 +98,13 @@ namespace SummerSync.Unity.World
         private bool host;
         private bool searched;
         private bool found;
+        private double frameNow;
 
-        public OrderSync(Logger log, NetworkManager manager)
+        public OrderSync(Logger log, NetworkManager manager, Objects.ObjectPresenter objects)
         {
             this.log = log;
             this.manager = manager;
+            this.objects = objects;
         }
 
         /// <summary>Once per frame. <paramref name="localPlayer"/> is the player's root object, or null without a world.</summary>
@@ -119,6 +140,7 @@ namespace SummerSync.Unity.World
                 return;
             }
 
+            frameNow = now;
             for (int i = 0; i < orders.Length; i++)
             {
                 Update(orders[i], now);
@@ -217,6 +239,7 @@ namespace SummerSync.Unity.World
                 picked.Add(index);
             }
 
+            parts.LetterFromOther = false;
             parts.WriteList(Positions(picked), boxNames);
             parts.PostHere();
             return "An order of " + picked.Count + " box(es) is posted from this game, as the post box does.";
@@ -303,6 +326,16 @@ namespace SummerSync.Unity.World
                 orders[i].Watch();
                 int which = i;
                 orders[i].HookCounter(() => CounterPaid(which));
+                orders[i].HookButton(() => OrderedHere(which));
+                if (!orders[i].HasLetter)
+                {
+                    log.Warning(Category, "Orders: the letter of the " + orders[i].Name + " order is not as this build expects; it is seen only in the game that orders.");
+                }
+                else if (host)
+                {
+                    // How it stands when the session starts, for whoever loaded an older save of this world.
+                    TellLetter(orders[i]);
+                }
             }
 
             found = true;
@@ -335,6 +368,11 @@ namespace SummerSync.Unity.World
                 return;
             }
 
+            if (order.HasLetter)
+            {
+                Letter(order, now);
+            }
+
             bool on = order.TimerOn;
 
             // A post here: the timer switched on, and not by the mod following the host.
@@ -364,6 +402,109 @@ namespace SummerSync.Unity.World
 
         }
 
+        private static void OrderedHere(int which)
+        {
+            OrderSync sync = active;
+            if (sync != null && which >= 0 && which < sync.orders.Length)
+            {
+                sync.orders[which].Reordered = true;
+            }
+        }
+
+        // The envelope of this game: what the game did with it since the last frame is told to the others.
+        private void Letter(Order order, double now)
+        {
+            // In another player's hand, the copy here must not be taken by this game's post box: the one that posts is the
+            // game of whoever lets it go there.
+            order.KeepFromPostBox(objects != null && objects.HeldElsewhere(order.Envelope));
+
+            bool reordered = order.Reordered;
+            order.Reordered = false;
+            bool outNow = order.LetterOut;
+            if (outNow == order.LetterWas && !(reordered && outNow))
+            {
+                return;
+            }
+
+            order.LetterWas = outNow;
+            if (outNow)
+            {
+                // Written in this game: its own list is the order.
+                order.LetterFromOther = false;
+                order.LetterList = null;
+                if (objects != null)
+                {
+                    objects.ScanSoon(now);
+                }
+            }
+
+            TellLetter(order);
+            log.Info(
+                Category,
+                outNow
+                    ? "Orders: the letter of the " + order.Name + " order was written in this game; the others have it too."
+                    : "Orders: the letter of the " + order.Name + " order is gone in this game (posted, or taken back); it goes in the others.");
+        }
+
+        // Whether this game's envelope is out, and with what order.
+        private void TellLetter(Order order)
+        {
+            if (current == null)
+            {
+                return;
+            }
+
+            bool outNow = order.LetterOut;
+            order.LetterSaid = Math.Max(order.LetterSaid, order.LetterHeard) + 1;
+            int[] list = !outNow || !order.HasList ? new int[0]
+                : order.LetterFromOther && order.LetterList != null ? ToWire(order.LetterList)
+                : ToWire(order.ReadOrdered(boxNames));
+            current.Set(Key + order.Name + LetterKey, WithHead(order.LetterSaid, WithHead(outNow ? 1 : 0, list)));
+        }
+
+        // Another game says how the letter stands: this game's envelope as that one's.
+        private void LetterHeard(Order order, int[] values)
+        {
+            if (!order.HasLetter || values.Length < 2 || values[0] <= order.LetterHeard)
+            {
+                return;
+            }
+
+            order.LetterHeard = values[0];
+            if (values[0] <= order.LetterSaid)
+            {
+                // What this game said, back from the host.
+                return;
+            }
+
+            if (values[1] != 0)
+            {
+                order.LetterFromOther = true;
+                order.LetterList = order.HasList ? FromWire(Tail(Tail(values))) : null;
+                bool shown = order.ShowLetter(boxNames);
+                if (shown && objects != null)
+                {
+                    objects.ScanSoon(frameNow);
+                }
+
+                log.Info(
+                    Category,
+                    "Orders: the letter of the " + order.Name + " order was written in another game" + (order.HasList ? " (" + Count(order.LetterList) + " box(es))" : string.Empty)
+                    + (shown ? "; this game's envelope is out too." : "; this game's envelope was out already."));
+            }
+            else
+            {
+                order.LetterFromOther = false;
+                order.LetterList = null;
+                if (order.HideLetter())
+                {
+                    log.Info(Category, "Orders: the letter of the " + order.Name + " order is gone in another game; this game's envelope goes too.");
+                }
+            }
+
+            order.LetterWas = order.LetterOut;
+        }
+
         private static void CounterPaid(int which)
         {
             OrderSync sync = active;
@@ -390,6 +531,14 @@ namespace SummerSync.Unity.World
         // This game posted an order: the host's own counts; a client tells the host.
         private void Posted(Order order)
         {
+            if (order.LetterFromOther && order.LetterList != null && order.HasList)
+            {
+                // The letter was written in another game: the order is that game's, not what this game's magazine has.
+                order.WriteList(order.LetterList, boxNames);
+            }
+
+            order.LetterFromOther = false;
+            order.LetterList = null;
             order.ListDirty = true;
             if (host)
             {
@@ -491,6 +640,10 @@ namespace SummerSync.Unity.World
                         HostSays(order, values);
                     }
                 }
+                else if (name == order.Name + LetterKey)
+                {
+                    LetterHeard(order, values);
+                }
                 else if (name == order.Name + "/post")
                 {
                     if (host && values[0] > order.PostHeard)
@@ -575,7 +728,9 @@ namespace SummerSync.Unity.World
         {
             int phase = values[0];
             int[] list = FromWire(Tail(values));
-            if (order.HasList && values.Length > 1)
+            // Only while the order is on its way or waiting: once paid, the host's list is empty a frame later, and written
+            // here then it would empty this game's before its own timer has taken the boxes out (it empties it itself).
+            if (order.HasList && values.Length > 1 && (phase == Order.OnItsWay || phase == Order.AtPostOffice))
             {
                 order.WriteList(list, boxNames);
             }
@@ -653,15 +808,51 @@ namespace SummerSync.Unity.World
             private ArrayList delivering;
             private FsmBool paid;
             private PausedMachine held;
+            private readonly string buttonPath;
+            private PlayMakerFSM button;
+            private Transform envelopeSpot;
+            private ArrayList ordered;
+            private FsmBool activated;
+            private bool untagged;
 
-            public Order(string name, string dataPath, bool hasList)
+            public Order(string name, string dataPath, bool hasList, string buttonPath)
             {
                 Name = name;
                 this.dataPath = dataPath;
+                this.buttonPath = buttonPath;
                 HasList = hasList;
                 PhaseSaid = -1;
                 PaidHeard = -1;
+                LetterHeard = -1;
             }
+
+            /// <summary>This order's envelope, or null.</summary>
+            public GameObject Envelope { get; private set; }
+
+            /// <summary>The envelope and where the game puts it when it is written are known.</summary>
+            public bool HasLetter
+            {
+                get { return Envelope != null && envelopeSpot != null; }
+            }
+
+            public bool LetterOut
+            {
+                get { return Envelope != null && Envelope.activeSelf; }
+            }
+
+            public bool LetterWas { get; set; }
+
+            public int LetterSaid { get; set; }
+
+            public int LetterHeard { get; set; }
+
+            /// <summary>The letter that is out was written in another game, with <see cref="LetterList"/>.</summary>
+            public bool LetterFromOther { get; set; }
+
+            public int[] LetterList { get; set; }
+
+            /// <summary>The order button was clicked in this game since the last frame.</summary>
+            public bool Reordered { get; set; }
 
             public string Name { get; private set; }
 
@@ -754,8 +945,141 @@ namespace SummerSync.Unity.World
                 {
                     log.Warning(Category, "Orders: the " + Name + " order ('" + dataPath + "') is not as this build expects; it is each game's own.");
                 }
+                else
+                {
+                    FindLetter(dataObject);
+                }
 
                 return Found;
+            }
+
+            // The envelope, the button that writes it and the place where that button puts it.
+            private void FindLetter(GameObject dataObject)
+            {
+                FsmGameObject envelope = data.FsmVariables.FindFsmGameObject(EnvelopeVariable);
+                Envelope = envelope == null ? null : envelope.Value;
+                activated = data.FsmVariables.FindFsmBool(ActivatedVariable);
+                ordered = null;
+                if (HasList)
+                {
+                    PlayMakerArrayListProxy[] proxies = dataObject.GetComponents<PlayMakerArrayListProxy>();
+                    for (int i = 0; i < proxies.Length; i++)
+                    {
+                        if (proxies[i] != null && proxies[i].referenceName == OrderedList)
+                        {
+                            ordered = proxies[i].arrayList;
+                        }
+                    }
+                }
+
+                // The sheet of the button is switched off until it is first looked at: found from its parent.
+                Transform sheets = dataObject.transform.parent;
+                Transform buttonAt = sheets == null ? null : sheets.Find(buttonPath);
+                button = buttonAt == null ? null : DoorSync.FindMachine(buttonAt, ButtonMachine);
+                envelopeSpot = null;
+                if (button == null || !Prepare(button))
+                {
+                    button = null;
+                    return;
+                }
+
+                FsmState[] states = button.FsmStates;
+                for (int s = 0; states != null && s < states.Length; s++)
+                {
+                    if (states[s].Name != OrderedState)
+                    {
+                        continue;
+                    }
+
+                    FsmStateAction[] actions = states[s].Actions;
+                    for (int a = 0; actions != null && a < actions.Length; a++)
+                    {
+                        var put = actions[a] as SetParent;
+                        if (put != null && put.parent != null && put.parent.Value != null)
+                        {
+                            envelopeSpot = put.parent.Value.transform;
+                        }
+                    }
+                }
+            }
+
+            // The click on the order button, with the order as the magazine has it: also when the envelope is out already.
+            public void HookButton(Action ordering)
+            {
+                if (button != null && HasLetter && ButtonsHooked.Add(button.GetInstanceID()))
+                {
+                    button.FsmInject(OrderedState, ordering, false, 0, false);
+                }
+            }
+
+            // What the magazine has picked, as indices of the known boxes.
+            public int[] ReadOrdered(List<string> names)
+            {
+                return Read(ordered, names);
+            }
+
+            // As the order button does: the envelope where the game puts a new one, and on.
+            public bool ShowLetter(List<string> names)
+            {
+                // A game that picked nothing takes the order as its own, so that its save has it; one that picked something
+                // keeps its own, and the letter's order is the one posted all the same (LetterList).
+                if (ordered != null && LetterList != null && Count(Read(ordered, names)) == 0)
+                {
+                    Write(ordered, LetterList, names);
+                }
+
+                if (Envelope.activeSelf)
+                {
+                    return false;
+                }
+
+                PutBack();
+                if (activated != null)
+                {
+                    activated.Value = true;
+                }
+
+                Envelope.SetActive(true);
+                return true;
+            }
+
+            // As the post box does: the envelope off, back where a new one starts.
+            public bool HideLetter()
+            {
+                if (!Envelope.activeSelf)
+                {
+                    return false;
+                }
+
+                Envelope.SetActive(false);
+                PutBack();
+                if (activated != null)
+                {
+                    activated.Value = false;
+                }
+
+                return true;
+            }
+
+            private void PutBack()
+            {
+                Transform at = Envelope.transform;
+                at.parent = envelopeSpot;
+                at.localPosition = Vector3.zero;
+                at.localRotation = Quaternion.identity;
+            }
+
+            // The post box takes what has the parts' tag: without it, the copy of an envelope another player carries is
+            // not posted by this game.
+            public void KeepFromPostBox(bool keep)
+            {
+                if (keep == untagged || Envelope == null)
+                {
+                    return;
+                }
+
+                untagged = keep;
+                Envelope.tag = keep ? NoTag : LetterTag;
             }
 
             // Where the boxes are: the object the timer takes them out of.
@@ -787,6 +1111,7 @@ namespace SummerSync.Unity.World
             public void Watch()
             {
                 WasOn = TimerOn;
+                LetterWas = LetterOut;
             }
 
             // The counter's paying state ("State 3": the money taken, "Paid" set, the counter off) tells the others.
@@ -827,32 +1152,42 @@ namespace SummerSync.Unity.World
             // The list of boxes as indices of the known boxes, -1 for an empty slot.
             public int[] ReadList(List<string> names)
             {
-                if (delivering == null)
+                return Read(delivering, names);
+            }
+
+            public void WriteList(int[] list, List<string> names)
+            {
+                Write(delivering, list, names);
+            }
+
+            private static int[] Read(ArrayList from, List<string> names)
+            {
+                if (from == null)
                 {
                     return new int[0];
                 }
 
-                var list = new int[delivering.Count];
+                var list = new int[from.Count];
                 for (int i = 0; i < list.Length; i++)
                 {
-                    string name = delivering[i] as string;
+                    string name = from[i] as string;
                     list[i] = string.IsNullOrEmpty(name) ? -1 : names.IndexOf(name);
                 }
 
                 return list;
             }
 
-            public void WriteList(int[] list, List<string> names)
+            private static void Write(ArrayList into, int[] list, List<string> names)
             {
-                if (delivering == null)
+                if (into == null)
                 {
                     return;
                 }
 
-                for (int i = 0; i < delivering.Count; i++)
+                for (int i = 0; i < into.Count; i++)
                 {
                     int index = i < list.Length ? list[i] : -1;
-                    delivering[i] = index >= 0 && index < names.Count ? names[index] : string.Empty;
+                    into[i] = index >= 0 && index < names.Count ? names[index] : string.Empty;
                 }
             }
 
@@ -947,6 +1282,12 @@ namespace SummerSync.Unity.World
             public void Let()
             {
                 Release();
+                KeepFromPostBox(false);
+                LetterSaid = 0;
+                LetterHeard = -1;
+                LetterFromOther = false;
+                LetterList = null;
+                Reordered = false;
                 Found = false;
                 PhaseSaid = -1;
                 ListSaid = null;

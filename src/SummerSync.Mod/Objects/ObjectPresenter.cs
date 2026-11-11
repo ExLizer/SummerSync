@@ -106,6 +106,11 @@ namespace SummerSync.Unity.Objects
         // bench until they picked it up (2026-11-08).
         private static readonly string[][] PlacedSpots = { new[] { "REPAIRSHOP", "LOD", "Store", "PartSpawn" } };
 
+        // Or children of where the game switches on the envelope of a mail order: on the parts magazine ("ITEMS/parts
+        // magazine(itemx)/EnvelopeSpawn") and in the house's mailbox ("YARD/PlayerMailBox/EnvelopeComputerSpawn"); it hangs
+        // there, with its own body, until a hand takes it (in the game on 2026-11-11).
+        private static readonly string[] LetterSpots = { "EnvelopeSpawn", "EnvelopeComputerSpawn" };
+
         // Or children of a shelf of this container: the Satsuma's parts that nobody has moved yet lie on
         // "CARPARTS/PartsCar", "PartsMotor", "PartsGT" and "PartsExtra" (in the game on 2026-10-15: 122 of them).
         // Picked up and let go, the hand leaves them at the root.
@@ -732,6 +737,12 @@ namespace SummerSync.Unity.Objects
         {
             Transform parent = transform.parent;
             if (parent == null || IsPlacedSpot(parent))
+            {
+                return true;
+            }
+
+            // The envelope of a mail order lies where the game switches it on until someone takes it.
+            if (System.Array.IndexOf(LetterSpots, parent.name) >= 0)
             {
                 return true;
             }

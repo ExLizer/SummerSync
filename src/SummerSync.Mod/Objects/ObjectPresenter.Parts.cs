@@ -81,6 +81,26 @@ namespace SummerSync.Unity.Objects
             return false;
         }
 
+        /// <summary>Whether that thing is a copy here of a loose object that another player has in hand.</summary>
+        public bool HeldElsewhere(GameObject thing)
+        {
+            if (thing == null)
+            {
+                return false;
+            }
+
+            Transform transform = thing.transform;
+            for (int i = 0; i < tracked.Count; i++)
+            {
+                if (tracked[i].Transform == transform)
+                {
+                    return tracked[i].Shared.Role == SummerSync.Core.Objects.BodyRole.Follow && tracked[i].Shared.Held;
+                }
+            }
+
+            return false;
+        }
+
         /// <summary>
         /// The shared number of that thing: the one it has, or, no longer loose (mounted, built in), the one it had when it
         /// stopped being. 0 if it never had one.

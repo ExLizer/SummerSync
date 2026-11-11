@@ -649,7 +649,7 @@ namespace SummerSync.Unity
             wantedSync = new WantedSync(ModRuntime.Log, ModRuntime.Network.Manager, vehicles);
             knockout = new KnockoutSync(ModRuntime.Log, ModRuntime.Network.Manager);
             fighters = new FighterSync(ModRuntime.Log, ModRuntime.Network.Manager, vehicles);
-            orders = new OrderSync(ModRuntime.Log, ModRuntime.Network.Manager);
+            orders = new OrderSync(ModRuntime.Log, ModRuntime.Network.Manager, objects);
             jobs = new JobSync(ModRuntime.Log, ModRuntime.Network.Manager, objects, vehicles);
             saves = new SaveSync(ModRuntime.Log, ModRuntime.Network.Manager);
             cdPlayer = new CdPlayback(ModRuntime.Log, ModRuntime.Network.Manager, vehicles);
