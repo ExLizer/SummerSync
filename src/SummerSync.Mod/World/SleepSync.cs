@@ -221,6 +221,7 @@ namespace SummerSync.Unity.World
                 return;
             }
 
+            bed.Unstick();
             if (EveryoneAsleep())
             {
                 log.Info(LogCategory.Fsm, "Sleep: this player lay down last; everyone sleeps, the hours go by.");
@@ -375,6 +376,33 @@ namespace SummerSync.Unity.World
                 held = false;
             }
 
+            /// <summary>The clip runs at the game's speed again, without going on from where it was held.</summary>
+            public void Free()
+            {
+                // Unity's null check is also true for a destroyed object.
+                AnimationState state = eyes == null ? null : eyes[clip];
+                if (held && state != null)
+                {
+                    eyes.Stop(clip);
+                }
+
+                held = false;
+                if (state != null && state.speed == 0f)
+                {
+                    state.speed = 1f;
+                }
+            }
+
+            /// <summary>A clip left held by an earlier night closes the eyes as the game does.</summary>
+            public void Unstick()
+            {
+                AnimationState state = eyes == null ? null : eyes[clip];
+                if (!held && state != null && state.speed == 0f)
+                {
+                    state.speed = 1f;
+                }
+            }
+
             /// <summary>Rested as the game rests a sleeper, and up, past the hours and the wake-up.</summary>
             public void GetUpRested()
             {
@@ -409,7 +437,10 @@ namespace SummerSync.Unity.World
                     text.Value = string.Empty;
                 }
 
-                held = false;
+                // The clip keeps its speed from one night to the next: left at 0, the next time the game plays it by
+                // itself (this player lying down last, or with no session) the eyes never close and the bed never
+                // lets go. Stopped first, so that the eyes do not close on while the player gets up.
+                Free();
                 if (!DoorSync.HasGlobalTransition(machine, GetUpEvent))
                 {
                     machine.AddGlobalTransition(GetUpEvent, GetUpState);

@@ -174,6 +174,9 @@ namespace SummerSync.Unity.Objects
         private Vector3 nearVehicle;
         private float vehicleReach;
 
+        // What this machine tows, as (x, y, z, reach): things around it go with it as with the vehicle driven.
+        private readonly List<Vector4> towed = new List<Vector4>();
+
         public ObjectPresenter(Logger log, NetworkManager manager, VehiclePresenter vehicles)
         {
             this.log = log;
@@ -249,6 +252,8 @@ namespace SummerSync.Unity.Objects
                 nearPlayer = player.position;
                 drivesVehicle = vehicles.TryGetDriven(out nearVehicle, out speed);
                 vehicleReach = NearVehicle + (speed * NearVehicleSeconds);
+                towed.Clear();
+                vehicles.CollectTowed(towed, NearVehicle, NearVehicleSeconds);
             }
 
             ThrowAway();
@@ -1221,7 +1226,26 @@ namespace SummerSync.Unity.Objects
                 return true;
             }
 
-            return drivesVehicle && (position - nearVehicle).sqrMagnitude <= vehicleReach * vehicleReach;
+            if (drivesVehicle && (position - nearVehicle).sqrMagnitude <= vehicleReach * vehicleReach)
+            {
+                return true;
+            }
+
+            // What a towed car has in its boot, on its roof or next to it is as far from the towing vehicle as the rope is
+            // long: left to the host, it rode a copy of the car there that does not carry it, and fell off (2026-11-12).
+            for (int i = 0; i < towed.Count; i++)
+            {
+                Vector4 car = towed[i];
+                float x = position.x - car.x;
+                float y = position.y - car.y;
+                float z = position.z - car.z;
+                if ((x * x) + (y * y) + (z * z) <= car.w * car.w)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         // Whether the physics of the vehicle with that number runs here: driven from here, or simulated here without anyone

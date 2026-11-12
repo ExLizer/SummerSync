@@ -388,6 +388,27 @@ namespace SummerSync.Unity.Vehicles
             return true;
         }
 
+        /// <summary>
+        /// Where each vehicle is that this machine tows (held here because it hangs from one that runs here: by the rope, or
+        /// the trailer on its hitch), with how far around it things go with it: that reach, and so many seconds of its speed
+        /// more. Added to the list as (x, y, z, reach).
+        /// </summary>
+        public void CollectTowed(List<Vector4> into, float reach, float seconds)
+        {
+            for (int i = 0; i < tracked.Count; i++)
+            {
+                Tracked vehicle = tracked[i];
+                if (vehicle == driven || vehicle.Body == null || !vehicle.Shared.HasId || !vehicle.Shared.Hung || vehicle.Shared.Role != BodyRole.Simulate)
+                {
+                    continue;
+                }
+
+                Vector3 at = vehicle.Root.position;
+                float speed = vehicle.Body.isKinematic ? 0f : vehicle.Body.velocity.magnitude;
+                into.Add(new Vector4(at.x, at.y, at.z, reach + (speed * seconds)));
+            }
+        }
+
         /// <summary>Whether the local player is at the wheel of the vehicle with that number.</summary>
         public bool Drives(ushort vehicleId)
         {
