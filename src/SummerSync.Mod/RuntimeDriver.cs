@@ -60,6 +60,12 @@ namespace SummerSync.Unity
         private bool lotteryFailed;
         private PubSync pub;
         private bool pubFailed;
+        private WindowSync windows;
+        private bool windowsFailed;
+        private WoodSync wood;
+        private bool woodFailed;
+        private StoveSync stove;
+        private bool stoveFailed;
         private PokerSync poker;
         private bool pokerFailed;
         private TrafficSync traffic;
@@ -639,6 +645,9 @@ namespace SummerSync.Unity
             fuel = new FuelSync(ModRuntime.Log, ModRuntime.Network.Manager, vehicles);
             lottery = new LotterySync(ModRuntime.Log, ModRuntime.Network.Manager);
             pub = new PubSync(ModRuntime.Log, ModRuntime.Network.Manager, objects);
+            windows = new WindowSync(ModRuntime.Log, ModRuntime.Network.Manager);
+            wood = new WoodSync(ModRuntime.Log, ModRuntime.Network.Manager, objects);
+            stove = new StoveSync(ModRuntime.Log, ModRuntime.Network.Manager);
             poker = new PokerSync(ModRuntime.Log, ModRuntime.Network.Manager);
             traffic = new TrafficSync(ModRuntime.Log, ModRuntime.Network.Manager);
             people = new PeopleSync(ModRuntime.Log, ModRuntime.Network.Manager);
@@ -1259,6 +1268,45 @@ namespace SummerSync.Unity
                     {
                         // Whatever broke may break the clean-up too.
                     }
+                }
+            }
+
+            if (!windowsFailed)
+            {
+                try
+                {
+                    windows.LateUpdate(ModRuntime.Network.Now, localPlayer);
+                }
+                catch (Exception exception)
+                {
+                    windowsFailed = true;
+                    ModRuntime.Log.Error(LogCategory.Fsm, "Sharing the shop's windows failed; a window broken in one game stays whole in the others until the main menu loads again. " + exception);
+                }
+            }
+
+            if (!woodFailed && !objectsFailed)
+            {
+                try
+                {
+                    wood.LateUpdate(ModRuntime.Network.Now, localPlayer);
+                }
+                catch (Exception exception)
+                {
+                    woodFailed = true;
+                    ModRuntime.Log.Error(LogCategory.Fsm, "Sharing the wood carrier and the flatbed's pile failed; each game has its own until the main menu loads again. " + exception);
+                }
+            }
+
+            if (!stoveFailed)
+            {
+                try
+                {
+                    stove.LateUpdate(ModRuntime.Network.Now, localPlayer);
+                }
+                catch (Exception exception)
+                {
+                    stoveFailed = true;
+                    ModRuntime.Log.Error(LogCategory.Fsm, "Sharing the kitchen stove's knobs failed; each game has its own until the main menu loads again. " + exception);
                 }
             }
 

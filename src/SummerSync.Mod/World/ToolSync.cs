@@ -10,7 +10,8 @@ namespace SummerSync.Unity.World
 {
     /// <summary>
     /// The garage's tools that a player works where they stand, shared like a knob (whoever worked it last): how high the
-    /// motor hoist's arm is, and how high the floor jack has lifted. Where each tool stands goes with the loose objects;
+    /// motor hoist's arm is, how high the floor jack has lifted, and the portable car jack (open or folded, and how high).
+    /// Where each tool stands goes with the loose objects;
     /// what it lifts moves by the physics of the machine that runs that thing (the car on the jack, the block on the
     /// hoist).
     ///
@@ -25,6 +26,13 @@ namespace SummerSync.Unity.World
     ///   to its float "Y" (up to 0.38), moves "Lifter/target_position2" to that height and plays "HouseFoley/carjack2" and
     ///   the lever's "lever_movement"; the other button goes to "Down", which makes "Y" 0 and moves the target back to
     ///   "Lifter/target_position". The lift ("Lifter/lift", machine "Movement") goes to the target at 0.32 m/s by itself.
+    /// - the portable jack, "ITEMS/car jack(itemx)", has a machine "Fold" whose boolean "Open" a press of the use button
+    ///   flips: it plays "HouseFoley/carjack3" and the handle's "handle_fold_open" or "handle_fold_close", and switches
+    ///   the object "Trigger" on or off. "Trigger" has a machine "Use": a click goes to "Up", which gives "Lift/lift" a
+    ///   kinematic Rigidbody if it has none, adds 0.015 to its float "Y" (0.04 to 0.36), moves "Lift/target_position2" to
+    ///   that height and plays "HouseFoley/carjack4" and the rod's "rod_movement"; the other button, "Up 2", takes 0.015
+    ///   away ("rod_movement2") and, at 0.08 or less, destroys that Rigidbody. The lift ("Lift/lift", machine "Movement")
+    ///   goes to the target by itself, and the rest of the jack follows the lift.
     ///
     /// In the other games the number is written and the arm or the target put where the game puts them, and the sounds
     /// and the handles' moves are played as the game plays them. Those states are not entered: they write a hint on the
@@ -34,6 +42,9 @@ namespace SummerSync.Unity.World
     {
         private const string HoistKey = "tool/hoist";
         private const string JackKey = "tool/jack";
+        private const string CarJackKey = "tool/carjack";
+        private const float CarJackDown = 0.08f;
+        private const double RodSeconds = 0.5;
         private const double BindSeconds = 5.0;
         private const double TellSeconds = 0.1;
 
@@ -57,6 +68,11 @@ namespace SummerSync.Unity.World
         private bool jackWanted;
         private int jackValue;
         private bool jackCatchUp;
+        private CarJack carJack;
+        private bool carJackWanted;
+        private int carJackValue;
+        private bool carJackOpen;
+        private bool carJackCatchUp;
 
         public ToolSync(Logger log, NetworkManager manager)
         {
@@ -86,10 +102,12 @@ namespace SummerSync.Unity.World
 
                 hoist = null;
                 jack = null;
+                carJack = null;
                 bound = false;
                 bindAt = now + 1.0;
                 hoistWanted = false;
                 jackWanted = false;
+                carJackWanted = false;
             }
 
             if (current == null)
@@ -121,6 +139,11 @@ namespace SummerSync.Unity.World
             {
                 WorkJack(now);
             }
+
+            if (carJack != null)
+            {
+                WorkCarJack(now);
+            }
         }
 
         // Heard while the session reads its messages: done in this class's turn in the frame.
@@ -144,17 +167,25 @@ namespace SummerSync.Unity.World
                 jackValue = values[0];
                 jackCatchUp = current.CatchingUp;
             }
+            else if (key == CarJackKey && values.Length >= 2)
+            {
+                carJackWanted = true;
+                carJackValue = values[0];
+                carJackOpen = values[1] != 0;
+                carJackCatchUp = current.CatchingUp;
+            }
         }
 
         private void Bind()
         {
             hoist = Hoist.Find();
             jack = Jack.Find();
-            bound = hoist != null || jack != null;
+            carJack = CarJack.Find();
+            bound = hoist != null || jack != null || carJack != null;
             log.Info(
                 LogCategory.Fsm,
-                "Tools: " + (hoist != null ? "the motor hoist's arm" : "no motor hoist") + " and " + (jack != null ? "the floor jack's lift" : "no floor jack")
-                + " are shared; whoever works one last moves it in every game.");
+                "Tools: " + (hoist != null ? "the motor hoist's arm" : "no motor hoist") + ", " + (jack != null ? "the floor jack's lift" : "no floor jack")
+                + " and " + (carJack != null ? "the portable car jack" : "no portable car jack") + " are shared; whoever works one last moves it in every game.");
 
             // What this game has is the session's from the start: the host's. Its nothing too (the arm where the level has
             // it, the jack down): what the session remembers may be of an earlier world, and a guest whose tool is not at
@@ -175,11 +206,17 @@ namespace SummerSync.Unity.World
                 current.Set(JackKey, new[] { Mathf.RoundToInt(jack.Y.Value * 1000f) });
             }
 
+            if (carJack != null)
+            {
+                current.Set(CarJackKey, new[] { Mathf.RoundToInt(carJack.Y.Value * 1000f), carJack.Open.Value ? 1 : 0 });
+            }
+
             log.Info(
                 LogCategory.Fsm,
                 "Tools: told as they are now, for whoever joins: "
                 + (hoist != null ? "the hoist's arm at " + (hoist.Told == 0f ? "the level's place (never used)" : hoist.Told.ToString("0.00", CultureInfo.InvariantCulture)) : "no hoist")
-                + ", " + (jack != null ? "the jack at " + Mathf.RoundToInt(jack.Y.Value * 1000f).ToString(CultureInfo.InvariantCulture) + " mm" : "no jack") + ".");
+                + ", " + (jack != null ? "the jack at " + Mathf.RoundToInt(jack.Y.Value * 1000f).ToString(CultureInfo.InvariantCulture) + " mm" : "no jack")
+                + ", " + (carJack != null ? "the portable jack " + (carJack.Open.Value ? "open" : "folded") + " at " + Mathf.RoundToInt(carJack.Y.Value * 1000f).ToString(CultureInfo.InvariantCulture) + " mm" : "no portable jack") + ".");
         }
 
         private void WorkHoist(double now)
@@ -348,6 +385,104 @@ namespace SummerSync.Unity.World
             }
         }
 
+        private void WorkCarJack(double now)
+        {
+            // Unity's null check is also true for a destroyed object.
+            if (carJack.Root == null || carJack.Target == null || carJack.Trigger == null)
+            {
+                carJack = null;
+                return;
+            }
+
+            if (carJack.RodUntil > 0 && now >= carJack.RodUntil)
+            {
+                // The game stops the rod's move when the pump is over.
+                carJack.RodUntil = 0;
+                if (carJack.Rod != null)
+                {
+                    carJack.Rod.Stop();
+                }
+            }
+
+            float y = carJack.Y.Value;
+            bool open = carJack.Open.Value;
+            if (Math.Abs(y - carJack.KnownY) >= 0.0005f || open != carJack.KnownOpen)
+            {
+                // Opened, folded, pumped or let down here.
+                carJack.KnownY = y;
+                carJack.KnownOpen = open;
+                carJack.OwnUntil = now + OwnSeconds;
+                current.Set(CarJackKey, new[] { Mathf.RoundToInt(y * 1000f), open ? 1 : 0 });
+            }
+
+            if (!carJackWanted)
+            {
+                return;
+            }
+
+            carJackWanted = false;
+            if (now < carJack.OwnUntil)
+            {
+                return;
+            }
+
+            float wanted = carJackValue / 1000f;
+            if (carJackOpen != open)
+            {
+                carJack.Open.Value = carJackOpen;
+                carJack.KnownOpen = carJackOpen;
+                carJack.Trigger.gameObject.SetActive(carJackOpen);
+                string clip = carJackOpen ? "handle_fold_open" : "handle_fold_close";
+                if (carJack.Handle != null && carJack.Handle[clip] != null)
+                {
+                    carJack.Handle.Play(clip);
+                }
+
+                if (carJackCatchUp)
+                {
+                    log.Info(LogCategory.Fsm, "Tools: the portable jack is " + (carJackOpen ? "open" : "folded") + " in the host's game; so it is here (a catch-up on joining).");
+                }
+                else
+                {
+                    PlaySound(carJack.Root, "carjack3");
+                }
+            }
+
+            if (Math.Abs(wanted - y) < 0.0005f)
+            {
+                return;
+            }
+
+            carJack.Y.Value = wanted;
+            carJack.KnownY = wanted;
+            carJack.Target.localPosition = new Vector3(0f, wanted, 0f);
+            Rigidbody body = carJack.Lift == null ? null : carJack.Lift.GetComponent<Rigidbody>();
+            if (wanted > y && body == null && carJack.Lift != null)
+            {
+                // What lifts the car: the game gives the lift a body on the first pump.
+                carJack.Lift.gameObject.AddComponent<Rigidbody>().isKinematic = true;
+            }
+            else if (wanted < y && wanted <= CarJackDown && body != null)
+            {
+                UnityEngine.Object.Destroy(body);
+            }
+
+            if (carJackCatchUp)
+            {
+                log.Info(LogCategory.Fsm, "Tools: the portable jack set to " + carJackValue.ToString(CultureInfo.InvariantCulture) + " mm, where the host has it (a catch-up on joining).");
+                return;
+            }
+
+            string move = wanted > y ? "rod_movement" : "rod_movement2";
+            if (carJack.Rod != null && carJack.Rod[move] != null)
+            {
+                carJack.Rod.Play(move);
+                carJack.RodUntil = now + RodSeconds;
+            }
+
+            PlaySound(carJack.Trigger, "carjack4");
+        }
+
         private void PlaySound(Transform at, string variation)
         {
             if (at == null)
@@ -458,6 +593,54 @@ namespace SummerSync.Unity.World
                     LeverAt = lever ?? trigger,
                     Lever = lever == null ? null : lever.GetComponent<Animation>(),
                     Known = y.Value,
+                };
+            }
+        }
+    
+
+        private sealed class CarJack
+        {
+            public Transform Root;
+            public Transform Trigger;
+            public FsmFloat Y;
+            public FsmBool Open;
+            public Transform Target;
+            public Transform Lift;
+            public Animation Handle;
+            public Animation Rod;
+            public float KnownY;
+            public bool KnownOpen;
+            public double OwnUntil;
+            public double RodUntil;
+
+            public static CarJack Find()
+            {
+                GameObject root = GameObject.Find("/ITEMS/car jack(itemx)");
+                Transform trigger = root == null ? null : Below(root.transform, "Trigger");
+                PlayMakerFSM use = trigger == null ? null : DoorSync.FindMachine(trigger, "Use");
+                PlayMakerFSM fold = root == null ? null : DoorSync.FindMachine(root.transform, "Fold");
+                FsmFloat y = use == null ? null : use.FsmVariables.FindFsmFloat("Y");
+                FsmBool open = fold == null ? null : fold.FsmVariables.FindFsmBool("Open");
+                Transform target = Below(root == null ? null : root.transform, "Lift/target_position2");
+                if (y == null || open == null || target == null)
+                {
+                    return null;
+                }
+
+                Transform rod = Below(root.transform, "CenterAxle/Pivot/TargetRight/Rod");
+                Transform handle = Below(rod, "pivot/Handle");
+                return new CarJack
+                {
+                    Root = root.transform,
+                    Trigger = trigger,
+                    Y = y,
+                    Open = open,
+                    Target = target,
+                    Lift = Below(root.transform, "Lift/lift"),
+                    Handle = handle == null ? null : handle.GetComponent<Animation>(),
+                    Rod = rod == null ? null : rod.GetComponent<Animation>(),
+                    KnownY = y.Value,
+                    KnownOpen = open.Value,
                 };
             }
         }
