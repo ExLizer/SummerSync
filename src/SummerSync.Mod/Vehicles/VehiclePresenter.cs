@@ -353,6 +353,7 @@ namespace SummerSync.Unity.Vehicles
             }
 
             current.Sample(StepTime());
+            WatchStep();
             for (int i = 0; i < tracked.Count; i++)
             {
                 Tracked vehicle = tracked[i];
@@ -1499,7 +1500,13 @@ namespace SummerSync.Unity.Vehicles
 
         private void Simulate(Tracked vehicle, SharedBody shared)
         {
+            bool taken = vehicle.Following;
             vehicle.Restore();
+            if (taken)
+            {
+                Watch(vehicle, "another machine simulated it until now");
+            }
+
             Rigidbody body = vehicle.Body;
             BodyPose pose;
             BodyMotion motion;
@@ -2342,8 +2349,30 @@ namespace SummerSync.Unity.Vehicles
                         .Append(Format(wheel.forwardGripFactor)).Append('/').Append(Format(wheel.sidewaysGripFactor)).Append(", camber ").Append(Signed(wheel.camber));
                 }
 
-                // Whatever else has a body, or is a player's capsule, inside the box of the vehicle's colliders.
                 text.Append(". Inside its box, not part of it: ");
+                DescribeInside(text, localPlayer);
+                text.Append(' ').Append(Cockpit.Describe());
+                if (localPlayer.IsChildOf(Root))
+                {
+                    // Where the game seats a driver, as a player's pose says it: the bottom of their capsule, and the camera.
+                    CharacterController capsule = localPlayer.GetComponent<CharacterController>();
+                    Camera eyes = Camera.main;
+                    if (capsule != null && eyes != null)
+                    {
+                        Vector3 feet = localPlayer.TransformPoint(capsule.center) - (Vector3.up * capsule.height * 0.5f * localPlayer.lossyScale.y);
+                        Vector3 seat = Root.InverseTransformPoint(feet);
+                        text.Append(" At the wheel here: feet at (").Append(Signed(seat.x)).Append(", ").Append(Signed(seat.y)).Append(", ").Append(Signed(seat.z))
+                            .Append(") of its own coordinates, eyes ").Append(Format(eyes.transform.position.y - feet.y)).Append(" m above them.");
+                    }
+                }
+
+                return text.ToString();
+            }
+
+            /// <summary>Appends whatever else has a body, or is a player's capsule, inside the box of the vehicle's colliders.</summary>
+            public void DescribeInside(System.Text.StringBuilder text, Transform localPlayer)
+            {
+                // Whatever else has a body, or is a player's capsule, inside the box of the vehicle's colliders.
                 Collider[] around = Physics.OverlapSphere(Root.TransformPoint(shell.center), shell.extents.magnitude);
                 var seen = new List<int>();
                 for (int i = 0; i < around.Length && seen.Count < 12; i++)
@@ -2392,22 +2421,6 @@ namespace SummerSync.Unity.Vehicles
                 }
 
                 text.Append(seen.Count == 0 ? "nothing." : ".");
-                text.Append(' ').Append(Cockpit.Describe());
-                if (localPlayer.IsChildOf(Root))
-                {
-                    // Where the game seats a driver, as a player's pose says it: the bottom of their capsule, and the camera.
-                    CharacterController capsule = localPlayer.GetComponent<CharacterController>();
-                    Camera eyes = Camera.main;
-                    if (capsule != null && eyes != null)
-                    {
-                        Vector3 feet = localPlayer.TransformPoint(capsule.center) - (Vector3.up * capsule.height * 0.5f * localPlayer.lossyScale.y);
-                        Vector3 seat = Root.InverseTransformPoint(feet);
-                        text.Append(" At the wheel here: feet at (").Append(Signed(seat.x)).Append(", ").Append(Signed(seat.y)).Append(", ").Append(Signed(seat.z))
-                            .Append(") of its own coordinates, eyes ").Append(Format(eyes.transform.position.y - feet.y)).Append(" m above them.");
-                    }
-                }
-
-                return text.ToString();
             }
 
             private static string Signed(float value)

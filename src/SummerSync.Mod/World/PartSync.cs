@@ -71,6 +71,7 @@ namespace SummerSync.Unity.World
         private const string DisassembleGlobal = "GUIdisassemble";
         private const double WheelLookSeconds = 1.0;
         private const double BoltLookSeconds = 1.0;
+        private const string WireCutEvent = "DESTROY";
         private const double BoltLogEvery = 2.0;
         private const LogCategory Category = LogCategory.Vehicle;
 
@@ -1005,7 +1006,17 @@ namespace SummerSync.Unity.World
                     return;
                 }
 
-                string why = "the game has no way to cut a wire";
+                // A wire is only ever cut by the short circuit's fire, which burns one: its record's "Data" takes DESTROY
+                // (the wire switched off, its ends back, not installed).
+                if (!want && slot.Tries < MostTries && slot.Data != null && DoorSync.HasGlobalTransition(slot.Data, WireCutEvent))
+                {
+                    slot.Tries++;
+                    slot.NextTry = now + RetrySeconds;
+                    slot.Data.SendEvent(WireCutEvent);
+                    return;
+                }
+
+                string why = "the game has no way to cut this wire";
                 if (!want || slot.Tries >= MostTries)
                 {
                     slot.WireDriving = false;

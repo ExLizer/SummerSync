@@ -66,6 +66,8 @@ namespace SummerSync.Unity
         private bool woodFailed;
         private StoveSync stove;
         private bool stoveFailed;
+        private CarFireSync carFire;
+        private bool carFireFailed;
         private PokerSync poker;
         private bool pokerFailed;
         private TrafficSync traffic;
@@ -648,6 +650,7 @@ namespace SummerSync.Unity
             windows = new WindowSync(ModRuntime.Log, ModRuntime.Network.Manager);
             wood = new WoodSync(ModRuntime.Log, ModRuntime.Network.Manager, objects);
             stove = new StoveSync(ModRuntime.Log, ModRuntime.Network.Manager);
+            carFire = new CarFireSync(ModRuntime.Log, ModRuntime.Network.Manager);
             poker = new PokerSync(ModRuntime.Log, ModRuntime.Network.Manager);
             traffic = new TrafficSync(ModRuntime.Log, ModRuntime.Network.Manager);
             people = new PeopleSync(ModRuntime.Log, ModRuntime.Network.Manager);
@@ -1307,6 +1310,19 @@ namespace SummerSync.Unity
                 {
                     stoveFailed = true;
                     ModRuntime.Log.Error(LogCategory.Fsm, "Sharing the kitchen stove's knobs failed; each game has its own until the main menu loads again. " + exception);
+                }
+            }
+
+            if (!carFireFailed)
+            {
+                try
+                {
+                    carFire.LateUpdate(ModRuntime.Network.Now, localPlayer);
+                }
+                catch (Exception exception)
+                {
+                    carFireFailed = true;
+                    ModRuntime.Log.Error(LogCategory.Vehicle, "Sharing the Satsuma's short circuit and fire failed; each game has its own until the main menu loads again. " + exception);
                 }
             }
 

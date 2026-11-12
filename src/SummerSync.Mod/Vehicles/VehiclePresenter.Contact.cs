@@ -103,6 +103,7 @@ namespace SummerSync.Unity.Vehicles
                 if (wanted && !copy.InContact)
                 {
                     copy.BeginContact(Time.fixedDeltaTime, OnCopyHit);
+                    Watch(copy, "a copy of another machine's, within reach of a vehicle simulated here");
                 }
                 else if (!wanted && copy.InContact)
                 {
