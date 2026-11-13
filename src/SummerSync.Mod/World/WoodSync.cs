@@ -18,7 +18,9 @@ namespace SummerSync.Unity.World
     ///   its "WoodTrigger" (machine "Trigger") waits in "Wait wood" for a
     ///   "firewood(Clone)" that moves (its body's speed above 0.001), destroys it, switches on one of the ten logs under
     ///   "Woods" and adds one to "WoodsIndex". "PickupTrigger" sends PICKWOOD, which goes to "Array": the top log off, a
-    ///   new firewood made at the pickup place, one less. What it holds is which logs are on, and that number.
+    ///   new firewood ("Prefab") made at the pickup place and put under ITEMS, one less. What it holds is which logs are
+    ///   on, and that number. "Array" takes the top log that a camera sees ("GameObjectIsVisible"); with none in sight it
+    ///   gets down to "log1" and makes a piece from it even when it is off.
     /// - the flatbed, "FLATBED/Bed/LogTrigger" (machine "Logic"): in "Check log" a "log(Clone)" or "firewood(Clone)" that
     ///   came into the box is destroyed and added to "Logs" (and "Firewood"); "Add scale" makes the pile's size, the
     ///   price and the box's weight from them. With the box tipped ("Unload") "Wait" takes the pile down and "Pay"
@@ -26,8 +28,11 @@ namespace SummerSync.Unity.World
     ///
     /// A piece of wood is taken by the game that moves it: a copy of one another machine moves has no speed for the
     /// carrier, and the flatbed here is made not to see it. The carrier is told as it is, by whoever changed it last; a
-    /// game with more logs than told takes them out the game's way, so the piece taken out is made in every game. The
-    /// flatbed's pile is added up by the host from what each game took in.
+    /// game with more logs than told takes them out as "Array" does with the log in sight, one piece per log, so the
+    /// piece taken out is made in every game. Not through "Array" itself: in a game whose player is not looking at the
+    /// carrier it made pieces out of nothing (2026-11-12). A piece made here that way and fallen into this flatbed
+    /// within a few seconds goes without being counted: the game that took it out has it in its own flatbed, counted
+    /// there. The flatbed's pile is added up by the host from what each game took in.
     ///
     /// Offline and in the loopback test nothing here touches the game.
     /// </summary>
@@ -37,7 +42,11 @@ namespace SummerSync.Unity.World
         private const string FlatbedKey = "wood/flatbed";
         private const string EventPrefix = "SUMMERSYNC WOOD ";
         private const double SearchInterval = 3.0;
-        private const int MaxPicks = 12;
+
+        // Pieces made here for another game's take-out: one at a time, as a hand takes them out; and for how long one
+        // that falls into this flatbed is that game's to count.
+        private const double PickSpacing = 0.15;
+        private const double MadeForOthersSeconds = 3.0;
 
         private readonly Logger log;
         private readonly NetworkManager manager;
@@ -52,6 +61,12 @@ namespace SummerSync.Unity.World
         private bool flatbedHeard;
         private int[] flatbedValues;
         private bool flatbedCatchUp;
+        private double clock;
+        private Transform items;
+
+        // Pieces made here because another game took them out of a carrier, by their instance number.
+        private readonly Dictionary<int, Made> madeForOthers = new Dictionary<int, Made>();
+        private readonly List<int> expired = new List<int>();
 
         public WoodSync(Logger log, NetworkManager manager, ObjectPresenter objects)
         {
@@ -66,6 +81,7 @@ namespace SummerSync.Unity.World
         /// </summary>
         public void LateUpdate(double now, Transform localPlayer)
         {
+            clock = now;
             TallyReplication tallies = localPlayer == null ? null : manager.Tallies;
             if (tallies != current)
             {
@@ -85,6 +101,8 @@ namespace SummerSync.Unity.World
 
                 carriers.Clear();
                 carriersHeard.Clear();
+                madeForOthers.Clear();
+                items = null;
                 flatbed = null;
                 searched = false;
                 flatbedHeard = false;
@@ -111,7 +129,7 @@ namespace SummerSync.Unity.World
                     continue;
                 }
 
-                WorkCarrier(carriers[i]);
+                WorkCarrier(carriers[i], now);
             }
 
             if (flatbed != null)
@@ -131,12 +149,14 @@ namespace SummerSync.Unity.World
                 }
             }
 
-            if (searched || GameObject.Find("/ITEMS") == null)
+            GameObject itemsRoot = searched ? null : GameObject.Find("/ITEMS");
+            if (itemsRoot == null)
             {
                 return;
             }
 
             searched = true;
+            items = itemsRoot.transform;
             Carrier.FindAll(carriers);
             log.Info(
                 LogCategory.Fsm,
@@ -172,7 +192,28 @@ namespace SummerSync.Unity.World
 
         private void Skip(FsmGameObject piece)
         {
-            if (current != null && piece != null && piece.Value != null && objects.MovedElsewhere(piece.Value))
+            GameObject thing = piece == null ? null : piece.Value;
+            if (current == null || thing == null)
+            {
+                return;
+            }
+
+            Made made;
+            int id = thing.GetInstanceID();
+            if (madeForOthers.TryGetValue(id, out made))
+            {
+                madeForOthers.Remove(id);
+                if (clock <= made.Until)
+                {
+                    // The game that took it out of the carrier had its own piece fall into its own flatbed, and counted it.
+                    piece.Value = null;
+                    UnityEngine.Object.Destroy(thing);
+                    log.Info(LogCategory.Fsm, "Firewood: a piece made here for player " + made.Player + "'s take-out fell into the flatbed; gone here, counted in that game.");
+                    return;
+                }
+            }
+
+            if (objects.MovedElsewhere(thing))
             {
                 piece.Value = null;
             }
@@ -211,17 +252,22 @@ namespace SummerSync.Unity.World
             flatbed.AddFirewood += Math.Max(0, change[1]);
         }
 
-        private void WorkCarrier(Carrier carrier)
+        private void WorkCarrier(Carrier carrier, double now)
         {
             Heard heard;
             if (carriersHeard.Count > 0 && carriersHeard.TryGetValue(carrier.Name, out heard))
             {
                 carriersHeard.Remove(carrier.Name);
+                if (!carrier.Wanted)
+                {
+                    carrier.Picks = 0;
+                }
+
                 carrier.Wanted = true;
                 carrier.WantedIndex = heard.Values[0];
                 carrier.WantedMask = heard.Values[1];
+                carrier.WantedBy = heard.Values[2];
                 carrier.CatchUp = heard.CatchUp;
-                carrier.Picks = 0;
             }
 
             int mask = carrier.Mask();
@@ -229,13 +275,13 @@ namespace SummerSync.Unity.World
             if (carrier.Wanted)
             {
                 bool awake = carrier.Machine.enabled && carrier.Machine.gameObject.activeInHierarchy;
-                if (!carrier.CatchUp && awake && Count(mask) > Count(carrier.WantedMask) && carrier.Picks < MaxPicks)
+                if (!carrier.CatchUp && awake && Count(mask) > Count(carrier.WantedMask))
                 {
-                    // One was taken out in another game: out here too, the game's way, which makes the piece of wood.
-                    if (carrier.Machine.ActiveStateName == Carrier.RestState)
+                    // Taken out in another game: out here too, one piece per log. Every one takes a log off, so this ends.
+                    if (now >= carrier.NextPick)
                     {
-                        carrier.Picks++;
-                        ToState(carrier.Machine, Carrier.PickState);
+                        carrier.NextPick = now + PickSpacing;
+                        TakeOut(carrier, now);
                     }
 
                     return;
@@ -287,6 +333,78 @@ namespace SummerSync.Unity.World
                 carrier.KnownIndex = index;
                 current.Set(CarrierKey + carrier.Name, new[] { index, mask, LocalId() });
             }
+        }
+
+        // One log out of the carrier as "Array" takes it with the log in sight: the top one off, one less, and a piece of
+        // firewood made at the pickup place, under ITEMS. "Array" itself is not used: it takes the log a camera sees, and
+        // a game whose player is not looking at the carrier got pieces made out of logs already off, up to twelve every
+        // time another player emptied it (a host's log of 2026-11-12).
+        private void TakeOut(Carrier carrier, double now)
+        {
+            int top = -1;
+            for (int i = carrier.Logs.Length - 1; i >= 0; i--)
+            {
+                if (carrier.Logs[i] != null && carrier.Logs[i].activeSelf)
+                {
+                    top = i;
+                    break;
+                }
+            }
+
+            if (top < 0)
+            {
+                return;
+            }
+
+            carrier.Logs[top].SetActive(false);
+            carrier.Index.Value = top - 1;
+            carrier.Picks++;
+            GameObject prefab = carrier.Prefab == null ? null : carrier.Prefab.Value;
+            if (prefab == null || carrier.Pickup == null || items == null)
+            {
+                if (!carrier.PrefabMissing)
+                {
+                    carrier.PrefabMissing = true;
+                    log.Warning(LogCategory.Fsm, "Firewood: the carrier '" + carrier.Name + "' has no piece of wood to make or no place to make it: what another player takes out of it is not made here.");
+                }
+
+                return;
+            }
+
+            Transform at = carrier.Pickup.transform;
+            var made = (GameObject)UnityEngine.Object.Instantiate(prefab, at.position, Quaternion.Euler(at.eulerAngles));
+            made.transform.SetParent(items, true);
+            ForgetMade(now);
+            madeForOthers[made.GetInstanceID()] = new Made { Until = now + MadeForOthersSeconds, Player = carrier.WantedBy };
+            if (carrier.WantedBy > Protocol.HostPlayerId && carrier.WantedBy <= byte.MaxValue && carrier.WantedBy != LocalId())
+            {
+                // On the host, the player who took it out moves it from the start: it may be in their hand already.
+                objects.Expect(made, (byte)carrier.WantedBy, now);
+            }
+        }
+
+        private void ForgetMade(double now)
+        {
+            if (madeForOthers.Count == 0)
+            {
+                return;
+            }
+
+            expired.Clear();
+            foreach (KeyValuePair<int, Made> entry in madeForOthers)
+            {
+                if (entry.Value.Until < now)
+                {
+                    expired.Add(entry.Key);
+                }
+            }
+
+            for (int i = 0; i < expired.Count; i++)
+            {
+                madeForOthers.Remove(expired[i]);
+            }
+
+            expired.Clear();
         }
 
         private void WorkFlatbed()
@@ -436,6 +554,12 @@ namespace SummerSync.Unity.World
             public bool CatchUp;
         }
 
+        private struct Made
+        {
+            public double Until;
+            public int Player;
+        }
+
         private sealed class Carrier
         {
             private const string ObjectName = "wood carrier(itemx)";
@@ -444,10 +568,10 @@ namespace SummerSync.Unity.World
             public string Name;
             public const string RestState = "Wait wood";
             public const string WaitState = "Wait";
-            public const string PickState = "Array";
 
             public PlayMakerFSM Machine;
             public FsmInt Index;
+            public FsmGameObject Prefab;
             public GameObject[] Logs;
             public GameObject Pickup;
             public AudioSource Sound;
@@ -456,8 +580,11 @@ namespace SummerSync.Unity.World
             public bool Wanted;
             public int WantedIndex;
             public int WantedMask;
+            public int WantedBy;
             public bool CatchUp;
             public int Picks;
+            public double NextPick;
+            public bool PrefabMissing;
 
             /// <summary>Every carrier of the world, wherever it lies (in the hand it hangs from the hand).</summary>
             public static void FindAll(List<Carrier> into)
@@ -494,6 +621,7 @@ namespace SummerSync.Unity.World
                         Name = saved.Value,
                         Machine = machine,
                         Index = index,
+                        Prefab = machine.FsmVariables.FindFsmGameObject("Prefab"),
                         Logs = logs,
                         Pickup = pickup == null ? null : pickup.gameObject,
                         Sound = trigger.GetComponent<AudioSource>(),
