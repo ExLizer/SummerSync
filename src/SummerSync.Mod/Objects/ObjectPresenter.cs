@@ -10,6 +10,9 @@ using UnityEngine;
 
 namespace SummerSync.Unity.Objects
 {
+    /// <summary>Where a helmet goes on that player's figure, and how it is turned; false if they wear none or are not shown.</summary>
+    internal delegate bool HelmetPlace(byte player, out Vector3 at, out Quaternion turn);
+
     /// <summary>
     /// The loose objects, as far as Unity is concerned: it finds the rigidbodies the player can pick up, hands
     /// them to the replication, and then does with each what the replication says. One it simulates is left
@@ -193,6 +196,12 @@ namespace SummerSync.Unity.Objects
 
         /// <summary>Whether to draw, over each nearby shared object, who is simulating it.</summary>
         public bool ShowOwners { get; set; }
+
+        /// <summary>
+        /// Where a helmet goes on another player's figure, when they wear one (PlayerPresenter.TryHelmetPlace); null shows
+        /// a worn helmet where its wearer's game has it.
+        /// </summary>
+        public HelmetPlace HelmetHeads { get; set; }
 
         /// <summary>
         /// Once per frame, after the game has moved everything. <paramref name="localPlayer"/> is the player's
@@ -918,8 +927,23 @@ namespace SummerSync.Unity.Objects
                 log.Info(
                     LogCategory.Authority,
                     putAway
-                        ? "The hand put '" + item.Shared.Name + "' away to use it as a tool. It is still in the hand: the others go on seeing it there."
+                        ? "'" + item.Shared.Name + "' is switched off under the local player (a tool in use, or the helmet worn): held here while it is, "
+                          + "and the others see it where this game has it."
                         : "'" + item.Shared.Name + "' is no longer put away.");
+
+                // Let go of as the hand lets go: this machine's until it has come to rest.
+                if (!putAway && hanger == null)
+                {
+                    current.SetHung(item.Shared, false);
+                }
+            }
+
+            // Put away under the local player, it is this machine's to hold, whether the hand took it first or not: a helmet is
+            // put on by looking at it on the ground, and stayed there in the other games, the host's to simulate, while a guest
+            // wore it (2026-11-13). Held here, its place is told as it is in this game, on the player's head.
+            if (putAway && hanger == null)
+            {
+                current.SetHung(item.Shared, true);
             }
 
             SharedBody shared = item.Shared;
@@ -1162,6 +1186,14 @@ namespace SummerSync.Unity.Objects
                 return;
             }
 
+            // Put away under the local player (the helmet just put on) while it is still another machine's: the game holds it
+            // there, and this machine asks for it (SetHung). Moved to where its owner has it, it would hang from the player's
+            // camera that far away, and be taken off there.
+            if (item.PutAway)
+            {
+                return;
+            }
+
             Unhide(item);
             item.FrozenFar = false;
             if (!body.isKinematic)
@@ -1176,6 +1208,23 @@ namespace SummerSync.Unity.Objects
             }
 
             item.Shown.Note(shared.Target, shared.Held, frameNow);
+
+            // A helmet held by a player who wears one is on their head: on the head of their figure here, which its clips
+            // move. Where their game has it is their camera, 0.1 to 0.2 m from where their figure's head is drawn, and a
+            // moment behind it (seen with two copies, 2026-11-13).
+            Vector3 headAt;
+            Quaternion headTurn;
+            if (shared.Held && IsHelmet(shared.Name) && HelmetHeads != null && HelmetHeads(shared.Owner, out headAt, out headTurn))
+            {
+                PassThroughVehicles(item, true);
+                item.ShownOn = 0;
+                item.Transform.position = headAt;
+                item.Transform.rotation = headTurn;
+                item.AtRest = false;
+                item.Quiet = false;
+                return;
+            }
+
             PassThroughVehicles(item, shared.Held || (shared.Target.Parent != 0 && vehicles.Simulates(shared.Target.Parent)));
             item.ShownOn = 0;
             if (shared.Target.Parent != 0)
@@ -1274,6 +1323,12 @@ namespace SummerSync.Unity.Objects
 
                 pushed.RemoveAt(i);
             }
+        }
+
+        // The game's helmet, or one of the copies made for each player (PerPlayerThings).
+        private static bool IsHelmet(string name)
+        {
+            return name == PerPlayerThings.HelmetName || name.StartsWith(PerPlayerThings.HelmetName + " ", System.StringComparison.Ordinal);
         }
 
         // Whether a client should be the one to run the physics of something at that place.

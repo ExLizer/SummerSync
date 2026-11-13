@@ -83,6 +83,9 @@ namespace SummerSync.Unity.Players
         private readonly List<AnimationClip> ownClips = new List<AnimationClip>();
         private int builtSerial = -1;
         private Quaternion headTune = Quaternion.identity;
+
+        // Where the head was last aimed (where the player looks), for what is worn on it.
+        private Quaternion headLook = Quaternion.identity;
         private Vector3 lastFeet;
         private float lastYaw;
         private bool placed;
@@ -148,6 +151,25 @@ namespace SummerSync.Unity.Players
         public bool IsAlive
         {
             get { return root != null; }
+        }
+
+        /// <summary>
+        /// Where the head bone is and where the head looks (along +Z, up along +Y), for what is worn on it. False if this
+        /// person's head was not found.
+        /// </summary>
+        public bool TryHead(out Vector3 at, out Quaternion facing)
+        {
+            // Unity's null check is also true for a destroyed object.
+            if (head == null)
+            {
+                at = Vector3.zero;
+                facing = Quaternion.identity;
+                return false;
+            }
+
+            at = head.position;
+            facing = headLook;
+            return true;
         }
 
         /// <summary>The top of the head, for the name above it.</summary>
@@ -350,6 +372,7 @@ namespace SummerSync.Unity.Players
                 float pitch = Mathf.Clamp(pose.Pitch, -HeadPitch, HeadPitch);
                 Quaternion look = Quaternion.Euler(-pitch, face + turn, 0f);
                 head.rotation = look * headTune * HeadFromFace;
+                headLook = look;
             }
 
             // Seated, the hands and the feet go to the controls; on its feet the clips have them.

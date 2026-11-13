@@ -636,6 +636,7 @@ namespace SummerSync.Unity
             MenuClicks.Forget();
             objects = new ObjectPresenter(ModRuntime.Log, ModRuntime.Network.Manager, vehicles);
             perPlayer = new PerPlayerThings(ModRuntime.Log, ModRuntime.Network.Manager);
+            objects.HelmetHeads = players.TryHelmetPlace;
             doors = new DoorSync(ModRuntime.Log, ModRuntime.Network.Manager, vehicles);
             world = new WorldSync(ModRuntime.Log, ModRuntime.Network.Manager);
             radio = new RadioSync(ModRuntime.Log, ModRuntime.Network.Manager, ModRuntime.SettingsFolder, vehicles, doors);

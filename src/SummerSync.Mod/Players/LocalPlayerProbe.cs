@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text;
+using HutongGames.PlayMaker;
 using SummerSync.Core.Logging;
 using SummerSync.Core.Players;
 using UnityEngine;
@@ -31,6 +32,9 @@ namespace SummerSync.Unity.Players
         private Collider pushBall;
         private CharacterController controller;
         private PlayerActions actions;
+
+        // The game's "PlayerHelmet": the player wears the helmet. Looked up once per world.
+        private FsmBool helmet;
         private double nextSearch;
         private double searchingSince = double.NaN;
         private bool missingReported;
@@ -71,6 +75,7 @@ namespace SummerSync.Unity.Players
         {
             inGameLevel = levelName == GameLevel;
             body = null;
+            helmet = null;
             searchingSince = double.NaN;
             nextSearch = 0;
         }
@@ -123,6 +128,12 @@ namespace SummerSync.Unity.Players
             pose.Pitch = Mathf.Asin(Mathf.Clamp(forward.y, -1f, 1f)) * Mathf.Rad2Deg;
             pose.EyeHeight = Mathf.Clamp(eyeHeight, 0.1f, PlayerWire.MaxEyeHeight);
             pose.Pushing = Pushing;
+            if (helmet == null)
+            {
+                helmet = FsmVariables.GlobalVariables.FindFsmBool("PlayerHelmet");
+            }
+
+            pose.Helmet = helmet != null && helmet.Value;
             if (actions != null)
             {
                 actions.Read(ref pose);

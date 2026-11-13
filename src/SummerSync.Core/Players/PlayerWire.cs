@@ -11,6 +11,7 @@ namespace SummerSync.Core.Players
     /// bits each, eye height in centimetres. A player riding a vehicle adds the vehicle's number, and one who
     /// drives it adds the <see cref="VehicleControls"/>, and one who sits, is belted or wears a helmet adds a byte that
     /// says so (a driver sits in no passenger seat). One who drinks, smokes or pees adds a byte after the pose: what, and a detail of it.
+    /// One on foot who wears a helmet says so in a flag (<see cref="FlagHelmet"/>).
     ///
     /// The number counts the states a player has sent. It is what lets the receiving end tell a state that was
     /// lost on the way from one that was never sent because the sender's game stood still.
@@ -50,6 +51,12 @@ namespace SummerSync.Core.Players
         /// </summary>
         public const byte FlagRider = 32;
 
+        /// <summary>
+        /// The player wears a helmet and rides nothing (a rider says it in the rider's byte). Nothing follows: the others put
+        /// the helmet this player holds on the head of their figure.
+        /// </summary>
+        public const byte FlagHelmet = 64;
+
         public const byte RiderBelted = 16;
 
         public const byte RiderHelmet = 32;
@@ -72,8 +79,9 @@ namespace SummerSync.Core.Players
             bool acting = inWorld && pose.Activity != PlayerActivity.None && pose.Activity <= PlayerActivity.Peeing;
             byte seat = pose.Seat <= PlayerPose.MaxSeat && !driving ? pose.Seat : (byte)0;
             bool rider = riding && (seat != 0 || pose.Belted || pose.Helmet);
+            bool helmet = inWorld && !riding && pose.Helmet;
             writer.WriteByte((byte)((inWorld ? FlagInWorld : 0) | (riding ? FlagRiding : 0) | (driving ? FlagDriving : 0) | (pushing ? FlagPushing : 0)
-                | (acting ? FlagActivity : 0) | (rider ? FlagRider : 0)));
+                | (acting ? FlagActivity : 0) | (rider ? FlagRider : 0) | (helmet ? FlagHelmet : 0)));
             if (!inWorld)
             {
                 return;
@@ -126,6 +134,7 @@ namespace SummerSync.Core.Players
             pose.Pitch = (reader.ReadUInt16() * (180f / 65535f)) - 90f;
             pose.EyeHeight = reader.ReadByte() / 100f;
             pose.Pushing = (flags & FlagPushing) != 0;
+            pose.Helmet = (flags & FlagHelmet) != 0;
             if ((flags & FlagActivity) != 0)
             {
                 byte activity = reader.ReadByte();
@@ -144,6 +153,11 @@ namespace SummerSync.Core.Players
                 {
                     throw new PacketFormatException("A player rides vehicle 0, which is none.");
                 }
+            }
+
+            if ((flags & FlagHelmet) != 0 && pose.Parent != 0)
+            {
+                throw new PacketFormatException("A rider says their helmet in the flag of those on foot.");
             }
 
             if ((flags & FlagRider) != 0)

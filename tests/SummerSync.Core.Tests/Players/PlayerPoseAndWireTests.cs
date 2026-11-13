@@ -273,6 +273,32 @@ public class PlayerWireTests
     }
 
     [Fact]
+    public void A_player_on_foot_says_their_helmet_in_a_flag()
+    {
+        var walking = new PlayerPose(1, 2, 3, 4, 5, 1.65f);
+        var helmeted = walking;
+        helmeted.Helmet = true;
+
+        var plain = RoundTrip(1, true, walking);
+        var worn = RoundTrip(1, true, helmeted);
+        Assert.False(plain.Pose.Helmet);
+        Assert.True(worn.Pose.Helmet);
+        Assert.Equal(plain.Bytes, worn.Bytes);
+
+        // A rider says it in the rider's byte, not in the flag; the flag with a vehicle is refused.
+        var riding = helmeted;
+        riding.Parent = 3;
+        var writer = new PacketWriter(64);
+        PlayerWire.WriteState(writer, 1, 1, true, riding);
+        Assert.Equal(0, writer.Buffer[6] & PlayerWire.FlagHelmet);
+        Assert.True(RoundTrip(1, true, riding).Pose.Helmet);
+        writer.Buffer[6] |= PlayerWire.FlagHelmet;
+        var reader = new PacketReader();
+        reader.SetBuffer(writer.Buffer, 0, writer.Length);
+        Assert.Throws<PacketFormatException>(() => PlayerWire.ReadState(reader, out _, out _, out _, out _));
+    }
+
+    [Fact]
     public void Driving_without_riding_is_not_written_and_is_refused_when_read()
     {
         // The pose says "driving" but names no vehicle: the state goes out as that of someone on foot.

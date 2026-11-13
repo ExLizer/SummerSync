@@ -17,6 +17,15 @@ namespace SummerSync.Unity.Players
         private const float AboveEyes = 0.12f;
         private const float LabelAboveHead = 0.25f;
 
+        // Where the middle of a worn helmet goes: from a person's head bone, along where the head looks (the eyes are 0.09 m
+        // ahead of it and 0.06 up, CharacterModel), or from the capsule's eyes. Looked at with two copies (2026-11-13).
+        private static readonly Vector3 HelmetOnHead = new Vector3(0f, 0.14f, 0.06f);
+        private static readonly Vector3 HelmetOnEyes = new Vector3(0f, 0.08f, -0.03f);
+
+        // The game's helmet has its top along its +Z (the neck opening along -Z) and its visor, a peak, along its -Y: turned
+        // a quarter about X, its top goes up and its visor ahead.
+        private static readonly Quaternion HelmetTurn = Quaternion.Euler(-90f, 0f, 0f);
+
         // The game keeps each recording on an object of its own under its sound player. A voice is heard whole up close
         // and fades out with the distance.
         private const string VoiceRoot = "MasterAudio/";
@@ -65,6 +74,36 @@ namespace SummerSync.Unity.Players
         public bool IsShown
         {
             get { return root != null && root.activeSelf; }
+        }
+
+        /// <summary>The player wears a helmet, as their last pose says.</summary>
+        public bool Helmeted { get; private set; }
+
+        /// <summary>
+        /// Where the middle of a helmet this player wears goes, and how it is turned: on the head
+        /// of the person it looks like, which its clips move, or on the capsule's. False while it is not shown.
+        /// </summary>
+        public bool TryHelmetPlace(out Vector3 at, out Quaternion turn)
+        {
+            at = Vector3.zero;
+            turn = Quaternion.identity;
+            if (!IsShown)
+            {
+                return false;
+            }
+
+            Vector3 headAt;
+            Quaternion facing;
+            if (model != null && model.IsAlive && model.TryHead(out headAt, out facing))
+            {
+                at = headAt + (facing * HelmetOnHead);
+                turn = facing * HelmetTurn;
+                return true;
+            }
+
+            at = head.position + (head.rotation * HelmetOnEyes);
+            turn = head.rotation * HelmetTurn;
+            return true;
         }
 
         /// <summary>Whether the avatar has hands out that push.</summary>
@@ -186,6 +225,7 @@ namespace SummerSync.Unity.Players
         {
             // Never flatter than a ball: lying on the floor the eyes are 30 cm up.
             height = Mathf.Max(pose.EyeHeight + AboveEyes, Radius * 2f);
+            Helmeted = pose.Helmet;
             Transform transform = root.transform;
             transform.position = new Vector3(pose.X, pose.Y, pose.Z) + offset;
             transform.rotation = Quaternion.Euler(0f, pose.Yaw, 0f);

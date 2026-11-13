@@ -342,6 +342,23 @@ namespace SummerSync.Unity.Players
             Physics.IgnoreCollision(one, other, true);
         }
 
+        /// <summary>
+        /// Where a helmet goes on that player's figure here, and how it is turned, when they wear one and their figure is
+        /// shown; false otherwise (ObjectPresenter puts there the helmet they hold).
+        /// </summary>
+        public bool TryHelmetPlace(byte id, out Vector3 at, out Quaternion turn)
+        {
+            PlayerAvatar avatar;
+            if (avatars.TryGetValue(id, out avatar) && avatar.IsAlive && avatar.Helmeted)
+            {
+                return avatar.TryHelmetPlace(out at, out turn);
+            }
+
+            at = Vector3.zero;
+            turn = Quaternion.identity;
+            return false;
+        }
+
         /// <summary>Removes every avatar, e.g. when the session ends.</summary>
         public void Clear()
         {

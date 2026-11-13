@@ -39,13 +39,26 @@ namespace SummerSync.Unity.Objects
         private const float SettleDepenetration = 1f;
         private const float SettleSeconds = 2f;
 
-        private const string HelmetName = "helmet(itemx)";
+        /// <summary>The game's helmet; its copies are named after it ("helmet(itemx) 2").</summary>
+        internal const string HelmetName = "helmet(itemx)";
         private const string HelmetMachinePath = "PLAYER/Pivot/AnimPivot/Camera/FPSCamera/FPSCamera/Helmet";
         private const string HelmetMachine = "Logic";
         private const string HelmetVariable = "Helmet";
         private const string HelmetPuttingOn = "Anim1";
         private const string HelmetUse = "Use";
         private const string HelmetUseAsked = "State 3";
+
+        // The states of the player's helmet machine with the helmet on ("Helmet ON", "State 1" waiting for the button that
+        // takes it off, "State 2" after a bee sting).
+        private const string HelmetOn = "Helmet ON";
+        private const string HelmetOnWait = "State 1";
+        private const string HelmetStung = "State 2";
+
+        // Where the middle of a worn helmet goes from the eyes, in the camera's axes, and how it is turned from the camera
+        // (its top looks along its +Z, its visor along its -Y). The others put it on the head of this player's figure; this
+        // is where it is told to be, and where it is when the game takes it off.
+        private static readonly Vector3 WornAt = new Vector3(0f, 0.08f, -0.03f);
+        private static readonly Quaternion WornTurn = Quaternion.Euler(-90f, 0f, 0f);
 
         // The things, by name; where the game keeps each loose: under "ITEMS", or at the root (where the helmet goes once it has
         // been taken off, and the ratchet set once its box is opened in the shop).
@@ -85,6 +98,7 @@ namespace SummerSync.Unity.Objects
             }
 
             PointHelmet();
+            WearHelmet();
             Settle();
             NetSession session = manager.Session;
             if (!manager.IsActive || session == null || session.State != SessionState.Connected || Time.unscaledTime < nextLook)
@@ -214,6 +228,38 @@ namespace SummerSync.Unity.Objects
 
                 return;
             }
+        }
+
+        // In a session, the helmet the local player wears sits on their head, as the others see it. The game only switches it
+        // off under the camera, 0.2 m in front of the eyes and turned as it lay where it was picked (resetLocalPosition, not the
+        // turn), and the loose objects tell the others where it is: they saw it in front of the face, turned to a side
+        // (2026-11-13). The helmet's top looks along its +Z (the neck opening along -Z) and its visor, a peak, along its -Y:
+        // the visor's mesh is thin along Z and sits 6 cm toward -Y.
+        private void WearHelmet()
+        {
+            // Unity's null check is also true for a destroyed object.
+            if (!manager.IsActive || helmetMachine == null)
+            {
+                return;
+            }
+
+            string state = helmetMachine.ActiveStateName;
+            if (state != HelmetOn && state != HelmetOnWait && state != HelmetStung)
+            {
+                return;
+            }
+
+            FsmGameObject worn = helmetMachine.FsmVariables.GetFsmGameObject(HelmetVariable);
+            Camera eyes = Camera.main;
+            GameObject helmet = worn == null ? null : worn.Value;
+            if (helmet == null || eyes == null || helmet.activeSelf || !helmet.transform.IsChildOf(eyes.transform))
+            {
+                return;
+            }
+
+            Transform head = eyes.transform;
+            helmet.transform.position = head.TransformPoint(WornAt);
+            helmet.transform.rotation = head.rotation * WornTurn;
         }
 
         // The copies made a moment ago, pushed out of what they overlap at the game's speed again.
