@@ -253,6 +253,22 @@ public class JobDefinitionTests
         Assert.Equal(11, radio.Actives.Length);
         Assert.All(radio.Actives, active => Assert.True(active.Said));
 
+        // The car inspection: the inspector and his lift go through their states in every game; only the game that
+        // simulates the Satsuma checks it, and the others take its result (the list of what failed, then the verdict).
+        JobDefinition inspection = jobs.Single(job => job.Name == "inspection");
+        Assert.Equal(33, inspection.Values.Length);
+        Assert.All(inspection.Values, value => Assert.True(value.Machine == "Results" && value.Kind == JobValueKind.Said));
+        JobRelay inspector = inspection.Relays.Single(relay => relay.Machine == "Animations");
+        Assert.Equal(JobRelayFrom.Any, inspector.From);
+        Assert.Contains("Lift up", inspector.States);
+        JobSpare results = Assert.Single(inspector.Spares);
+        Assert.Equal("Get results", results.State);
+        Assert.Equal("/SATSUMA(557kg, 248)", results.Object);
+        Assert.Equal(new[] { 0 }, results.Actions);
+        Assert.True(results.EvenNear);
+        Assert.Equal(new[] { "State 2" }, inspection.Relays.Single(relay => relay.Machine == "Results").States);
+        Assert.Equal(2, inspection.Actives.Length);
+
         // What used to be listed in the code: the hay bales, the furniture and the wells' things are loose.
         string[] loose = jobs.SelectMany(job => job.Loose).ToArray();
         Assert.Contains("JOBS/HayBales", loose);

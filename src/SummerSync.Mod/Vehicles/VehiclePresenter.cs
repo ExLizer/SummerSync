@@ -1195,6 +1195,7 @@ namespace SummerSync.Unity.Vehicles
 
             for (int i = 0; i < tracked.Count; i++)
             {
+                tracked[i].EndWatch();
                 if (tracked[i].Body != null)
                 {
                     tracked[i].Restore();
@@ -1203,6 +1204,7 @@ namespace SummerSync.Unity.Vehicles
                 tracked[i].DropProbe();
             }
 
+            handedOver.Clear();
             tracked.Clear();
             driven = null;
             simulatesAny = false;
@@ -2432,6 +2434,11 @@ namespace SummerSync.Unity.Vehicles
                     {
                         text.Append('\'').Append(body.name).Append("' ").Append(Format(body.mass)).Append(" kg, layer ").Append(other.gameObject.layer)
                             .Append(body.isKinematic ? ", KINEMATIC" : ", gives way").Append(body.detectCollisions ? ", touches" : ", touches nothing");
+                        string solid = SolidAround(Root, body);
+                        if (solid != null)
+                        {
+                            text.Append(", IN '").Append(solid).Append('\'');
+                        }
                     }
                     else
                     {

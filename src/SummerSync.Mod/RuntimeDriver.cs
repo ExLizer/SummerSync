@@ -32,6 +32,8 @@ namespace SummerSync.Unity
         private bool leftMainMenu;
         private PlayerPresenter players;
         private ObjectPresenter objects;
+        private PerPlayerThings perPlayer;
+        private bool perPlayerFailed;
         private VehiclePresenter vehicles;
         private DoorSync doors;
         private WorldSync world;
@@ -633,6 +635,7 @@ namespace SummerSync.Unity
             photo = new WorldPhoto(ModRuntime.Log);
             MenuClicks.Forget();
             objects = new ObjectPresenter(ModRuntime.Log, ModRuntime.Network.Manager, vehicles);
+            perPlayer = new PerPlayerThings(ModRuntime.Log, ModRuntime.Network.Manager);
             doors = new DoorSync(ModRuntime.Log, ModRuntime.Network.Manager, vehicles);
             world = new WorldSync(ModRuntime.Log, ModRuntime.Network.Manager);
             radio = new RadioSync(ModRuntime.Log, ModRuntime.Network.Manager, ModRuntime.SettingsFolder, vehicles, doors);
@@ -996,6 +999,23 @@ namespace SummerSync.Unity
                 {
                     spawnsFailed = true;
                     ModRuntime.Log.Error(LogCategory.Fsm, "Sharing what the games make failed; what is bought appears only for whoever bought it until the main menu loads again. " + exception);
+                }
+            }
+
+            // The helmet and the toolboxes for each player: made before the loose objects look for what is new.
+            if (!perPlayerFailed && !objectsFailed)
+            {
+                try
+                {
+                    if (perPlayer.LateUpdate(localPlayer))
+                    {
+                        objects.ScanSoon(ModRuntime.Network.Now);
+                    }
+                }
+                catch (Exception exception)
+                {
+                    perPlayerFailed = true;
+                    ModRuntime.Log.Error(LogCategory.Authority, "The helmet and the toolboxes for each player failed; there is one of each until the main menu loads again. " + exception);
                 }
             }
 

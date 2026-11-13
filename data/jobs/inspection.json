@@ -1,0 +1,57 @@
+{
+  "format": 1,
+  "name": "inspection",
+  "root": "INSPECTION",
+  "path": "Functions/InspectionProcess",
+  "values": [
+    { "path": "", "fsm": "Results", "variable": "Body", "kind": "said" },
+    { "path": "", "fsm": "Results", "variable": "Brakes", "kind": "said" },
+    { "path": "", "fsm": "Results", "variable": "Dashboard", "kind": "said" },
+    { "path": "", "fsm": "Results", "variable": "Exhaust", "kind": "said" },
+    { "path": "", "fsm": "Results", "variable": "FuelLine", "kind": "said" },
+    { "path": "", "fsm": "Results", "variable": "FuelTank", "kind": "said" },
+    { "path": "", "fsm": "Results", "variable": "GearLinkage", "kind": "said" },
+    { "path": "", "fsm": "Results", "variable": "Handbrake", "kind": "said" },
+    { "path": "", "fsm": "Results", "variable": "HeadlightLeft", "kind": "said" },
+    { "path": "", "fsm": "Results", "variable": "HeadlightRight", "kind": "said" },
+    { "path": "", "fsm": "Results", "variable": "RearLightLeft", "kind": "said" },
+    { "path": "", "fsm": "Results", "variable": "RearLightRight", "kind": "said" },
+    { "path": "", "fsm": "Results", "variable": "SeatDriver", "kind": "said" },
+    { "path": "", "fsm": "Results", "variable": "ShockFL", "kind": "said" },
+    { "path": "", "fsm": "Results", "variable": "ShockFR", "kind": "said" },
+    { "path": "", "fsm": "Results", "variable": "SteeringColumn", "kind": "said" },
+    { "path": "", "fsm": "Results", "variable": "SteeringRack", "kind": "said" },
+    { "path": "", "fsm": "Results", "variable": "SteeringRodLeft", "kind": "said" },
+    { "path": "", "fsm": "Results", "variable": "SteeringRodRight", "kind": "said" },
+    { "path": "", "fsm": "Results", "variable": "SteeringWheel", "kind": "said" },
+    { "path": "", "fsm": "Results", "variable": "Subframe", "kind": "said" },
+    { "path": "", "fsm": "Results", "variable": "SuspensionRL", "kind": "said" },
+    { "path": "", "fsm": "Results", "variable": "SuspensionRR", "kind": "said" },
+    { "path": "", "fsm": "Results", "variable": "Tires", "kind": "said" },
+    { "path": "", "fsm": "Results", "variable": "TrailArmRL", "kind": "said" },
+    { "path": "", "fsm": "Results", "variable": "TrailArmRR", "kind": "said" },
+    { "path": "", "fsm": "Results", "variable": "WarningTriangle", "kind": "said" },
+    { "path": "", "fsm": "Results", "variable": "WheelAlign", "kind": "said" },
+    { "path": "", "fsm": "Results", "variable": "Windshield", "kind": "said" },
+    { "path": "", "fsm": "Results", "variable": "WishboneFL", "kind": "said" },
+    { "path": "", "fsm": "Results", "variable": "WishboneFR", "kind": "said" },
+    { "path": "", "fsm": "Results", "variable": "Engine", "kind": "said" },
+    { "path": "", "fsm": "Results", "variable": "Emissions", "kind": "said" }
+  ],
+  "relay": [
+    {
+      "path": "/INSPECTION/LOD/Officer/Work",
+      "fsm": "Animations",
+      "states": ["Lean out", "Move to hall", "Press button", "Lift up", "Button off", "Work on car", "Press button 3", "Lift down", "Button off 2", "Move in office", "Get results"],
+      "spare": [
+        { "state": "Get results", "object": "/SATSUMA(557kg, 248)", "actions": [0], "evenNear": true }
+      ]
+    },
+    {
+      "path": "",
+      "fsm": "Results",
+      "states": ["State 2"]
+    }
+  ],
+  "actives": ["/Database/DatabaseBody/RegPlateFront", "/Database/DatabaseBody/RegPlateRear"]
+}

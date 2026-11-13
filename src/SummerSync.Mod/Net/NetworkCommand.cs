@@ -74,6 +74,7 @@ namespace SummerSync.Unity.Net
                 case "doors":
                 case "lobby":
                 case "sim":
+                case "pushout":
                     return true;
                 case "order":
                     return what.Length > 0;
@@ -199,6 +200,20 @@ namespace SummerSync.Unity.Net
             if (args.Length > 0 && (string.Equals(args[0], "smoke", System.StringComparison.OrdinalIgnoreCase) || string.Equals(args[0], "humo", System.StringComparison.OrdinalIgnoreCase)))
             {
                 ModConsole.Print(Prefix + RuntimeDriver.Smoke());
+                return;
+            }
+
+            if (args.Length > 0 && string.Equals(args[0], "pushout", System.StringComparison.OrdinalIgnoreCase))
+            {
+                if (args.Length > 1)
+                {
+                    Vehicles.VehiclePresenter.LimitPushOut = !string.Equals(args[1], "off", System.StringComparison.OrdinalIgnoreCase);
+                }
+
+                ModConsole.Print(
+                    Prefix + (Vehicles.VehiclePresenter.LimitPushOut
+                        ? "What starts its physics in a vehicle, or with a vehicle, is pushed out of what it overlaps slowly for a moment (as published)."
+                        : "Test aid: what starts its physics in a vehicle is pushed out of what it overlaps at any speed, as before 0.2.24. 'ss pushout on' puts it back."));
                 return;
             }
 

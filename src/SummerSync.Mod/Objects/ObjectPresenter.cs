@@ -130,6 +130,10 @@ namespace SummerSync.Unity.Objects
         // floor jack, layer 15, tag "TOOL"; the hand does not take them up nor put them on its layer).
         private const string ToolTag = "TOOL";
 
+        // How long what starts its physics here on a vehicle is pushed out of an overlap slowly (HoldDepenetration): as long as a
+        // vehicle after a hand-over (VehiclePresenter.WatchSeconds).
+        private const double StartDepenetrationSeconds = 1.5;
+
         private readonly Logger log;
         private readonly NetworkManager manager;
         private readonly VehiclePresenter vehicles;
@@ -151,6 +155,9 @@ namespace SummerSync.Unity.Objects
 
         // What other games ate or threw away, to be done to the copies here in the next frame.
         private readonly List<Gone> gone = new List<Gone>();
+
+        // What started its physics here on a vehicle a moment ago (HoldDepenetration).
+        private readonly List<Pushed> pushed = new List<Pushed>();
         private readonly GUIContent label = new GUIContent();
         private ObjectReplication current;
         private Transform player;
@@ -268,6 +275,7 @@ namespace SummerSync.Unity.Objects
                 Drive(tracked[i], i);
             }
 
+            ReleaseDepenetration(now);
             KeepWiringTool();
             WatchItems();
             TellJoined();
@@ -458,6 +466,7 @@ namespace SummerSync.Unity.Objects
         public void ReleaseAll()
         {
             ReleaseWiringTool();
+            ReleaseDepenetration(double.PositiveInfinity);
             for (int i = 0; i < tracked.Count; i++)
             {
                 Restore(tracked[i]);
@@ -1036,6 +1045,11 @@ namespace SummerSync.Unity.Objects
                         body.angularVelocity = spin;
                         body.WakeUp();
                     }
+
+                    if (handedOn != null)
+                    {
+                        HoldDepenetration(item);
+                    }
                 }
 
                 item.Quiet = false;
@@ -1046,10 +1060,12 @@ namespace SummerSync.Unity.Objects
                 // vehicle's speed, not standing still in the world with the vehicle driving into it.
                 Vector3 carried = vehicles.VelocityAt(rode, item.Transform.position);
                 body.velocity = carried;
+                HoldDepenetration(item);
+                string solid = vehicles.SolidAround(rode, body);
                 log.Info(
                     LogCategory.Authority,
                     "'" + shared.Name + "' was riding vehicle " + rode + " and is simulated here from now on: it starts at the vehicle's "
-                    + Format(carried.magnitude) + " m/s.");
+                    + Format(carried.magnitude) + " m/s" + (solid == null ? "." : ", inside its '" + solid + "'."));
             }
 
             // Lying still far from the local player (handed back just now, or left there): held where it lies.
@@ -1207,6 +1223,56 @@ namespace SummerSync.Unity.Objects
                         "'" + shared.Name + "', which another machine simulates, is within reach of a vehicle simulated here: it touches nothing here "
                         + "until it is away from it. The same goes for every such thing from now on, without another line in the log.");
                 }
+            }
+        }
+
+        // What starts its physics here on a vehicle (handed over riding it, or taken as the vehicle's physics comes here) is
+        // pushed out of what it overlaps no faster than the vehicle after a hand-over (VehiclePresenter.StartDepenetration), for
+        // as long. Unity's default, which the game keeps, has no limit: a beer case and four empty bottles that started theirs
+        // inside a guest's Satsuma in the frame the car's own started threw the car away at 592,953 m/s (2026-11-13).
+        private void HoldDepenetration(Tracked item)
+        {
+            if (!VehiclePresenter.LimitPushOut)
+            {
+                return;
+            }
+
+            Rigidbody body = item.Body;
+            double until = frameNow + StartDepenetrationSeconds;
+            for (int i = 0; i < pushed.Count; i++)
+            {
+                if (pushed[i].Body == body)
+                {
+                    Pushed again = pushed[i];
+                    again.Until = until;
+                    pushed[i] = again;
+                    return;
+                }
+            }
+
+            pushed.Add(new Pushed { Body = body, Before = body.maxDepenetrationVelocity, Until = until });
+            body.maxDepenetrationVelocity = Mathf.Min(body.maxDepenetrationVelocity, VehiclePresenter.StartDepenetration);
+        }
+
+        // Each limit held since a moment ago, back to what it was (all of them for an infinite time).
+        private void ReleaseDepenetration(double now)
+        {
+            for (int i = pushed.Count - 1; i >= 0; i--)
+            {
+                Pushed held = pushed[i];
+
+                // Unity's null check is also true for a destroyed object.
+                if (held.Body != null && now < held.Until)
+                {
+                    continue;
+                }
+
+                if (held.Body != null)
+                {
+                    held.Body.maxDepenetrationVelocity = held.Before;
+                }
+
+                pushed.RemoveAt(i);
             }
         }
 
@@ -1520,6 +1586,13 @@ namespace SummerSync.Unity.Objects
         {
             public SharedBody Body;
             public byte Player;
+        }
+
+        private struct Pushed
+        {
+            public Rigidbody Body;
+            public float Before;
+            public double Until;
         }
 
         private struct Born
