@@ -131,6 +131,16 @@ namespace SummerSync.Unity.Vehicles
                     LogStrain(vehicle, true);
                 }
 
+                if (vehicle.WatchStarted && vehicle.ThrowBackIfThrown(now - vehicle.WatchVelocity, spin - vehicle.WatchSpin))
+                {
+                    log.Warning(
+                        LogCategory.Vehicle,
+                        "Hand-over: '" + vehicle.Root.name + "' was thrown at " + Number(now.magnitude) + " m/s and " + Number(spin.magnitude)
+                        + " rad/s by nothing a crash does: put back where it was handed over, at rest, with its parts on it.");
+                    now = Vector3.zero;
+                    spin = Vector3.zero;
+                }
+
                 vehicle.WatchVelocity = now;
                 vehicle.WatchSpin = spin;
                 vehicle.WatchStarted = true;
@@ -231,6 +241,15 @@ namespace SummerSync.Unity.Vehicles
             public void EndWatch()
             {
                 WatchUntil = 0f;
+                ForgetHandOverPlace();
+                if (partsHeldThroughWatch)
+                {
+                    partsHeldThroughWatch = false;
+                    if (!Following)
+                    {
+                        ReleaseParts();
+                    }
+                }
 
                 // Unity's null check is also true for a destroyed component.
                 if (watchProbe != null)

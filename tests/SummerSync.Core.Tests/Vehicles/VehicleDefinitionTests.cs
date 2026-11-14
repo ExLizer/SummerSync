@@ -622,6 +622,39 @@ public class VehicleDefinitionTests
     }
 
     [Fact]
+    public void The_shift_light_is_where_each_tachometer_lights_up_kept_in_the_saved_setting_too()
+    {
+        string file = Path.Combine(AppContext.BaseDirectory, "data", "vehicles", "satsuma.json");
+        VehicleDefinition satsuma = VehicleDefinition.Parse(File.ReadAllText(file));
+
+        foreach (string under in new[] { "tachometer(xxxx1)", "tachometer(xxxx2)" })
+        {
+            VehicleKnob light = Assert.Single(satsuma.Knobs, k => k.Under == under);
+            Assert.Equal("Pivot/GFX/NeedlePivot", light.Path);
+            Assert.Equal("Tach", light.Machine);
+            Assert.Equal("SettingRPM", light.Variable);
+
+            // The game clamps it to 500-9500 and the knob turns it by 100; the scene's 7500 and the save's 8500 are positions.
+            Assert.Equal(0, light.PositionOf(500f));
+            Assert.Equal(90, light.Highest);
+            Assert.Equal(9500f, light.ValueAt(light.Highest));
+            Assert.Equal(7500f, light.ValueAt(light.PositionOf(7500f)));
+            Assert.Equal(8500f, light.ValueAt(light.PositionOf(8500f)));
+            Assert.Equal(7, light.Bits);
+
+            KnobCopy saved = Assert.Single(light.Copies);
+            Assert.True(KnobCopy.InScene(saved.Path));
+            Assert.Equal("/Database/DatabaseOrders/Tachometer", saved.Path);
+            Assert.Equal("RPMSetting", saved.Variable);
+            Assert.Equal(8500f, saved.Of(8500f));
+        }
+
+        Assert.False(KnobCopy.InScene("Pivot/GFX"));
+        Assert.False(KnobCopy.InScene(null));
+        Assert.False(KnobCopy.InScene("/"));
+    }
+
+    [Fact]
     public void Every_vehicle_file_says_where_its_driver_sits_and_what_they_work()
     {
         string folder = Path.Combine(AppContext.BaseDirectory, "data", "vehicles");

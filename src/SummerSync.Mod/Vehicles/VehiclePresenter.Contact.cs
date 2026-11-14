@@ -60,8 +60,14 @@ namespace SummerSync.Unity.Vehicles
         private const float MaxCorrection = 2f;
         private const float MaxTurnCorrection = 1.5f;
 
+        // Slower than this (m/s, and rad/s turning), a copy with its own physics stands on no wheels of its own.
+        private const float StillWheels = 1f;
+
         // Faster than this between two steps, a followed vehicle was put somewhere, not driven there.
         private const float MaxContactSpeed = 70f;
+
+        // How often a copy with its own physics says how it followed its owner.
+        private const float ContactSayEvery = 5f;
 
         // Once per frame, after the vehicles are driven: which followed vehicles are within reach of one simulated here.
         private void UpdateContacts(double now)
@@ -144,14 +150,23 @@ namespace SummerSync.Unity.Vehicles
             Rigidbody body = copy.Body;
             if (Time.fixedTime < copy.LooseUntil || step <= 0f)
             {
-                // Where the crash here sends it.
+                // Where the crash here sends it, on its own wheels.
+                copy.WheelsOff(false);
                 copy.Speed = Vector3.Dot(body.velocity, body.rotation * Vector3.forward);
                 return;
             }
 
+            // Standing where its owner has it, its own wheels do not push it: their springs rocked it about a degree in every
+            // step (measured on 2026-11-14, a parked Ferndale beside the host's tractor: 1.1 to 1.7 degrees on average off its
+            // owner and 7 at most; with its wheels off, none). Moving, they stay on, to turn as it goes (the van passing at
+            // 8.5 m/s was a degree off at most).
+            copy.WheelsOff(ownerVelocity.sqrMagnitude < StillWheels * StillWheels && ownerSpin.sqrMagnitude < StillWheels * StillWheels);
+
             float turned = Quaternion.Angle(body.rotation, rotation);
+            copy.NoteContactStep((position - body.position).magnitude, turned, ownerVelocity.magnitude);
             if ((position - body.position).sqrMagnitude > TeleportDistance * TeleportDistance || turned > FarTurn)
             {
+                copy.ContactPuts++;
                 // Far from where its owner has it, or turned far from how its owner has it (put somewhere, a crash that came out
                 // very differently here, or a vehicle that fell over here by itself: the moped, with nobody on it to keep it
                 // up): put there, as a kinematic copy would be.
@@ -252,6 +267,14 @@ namespace SummerSync.Unity.Vehicles
             private Quaternion lastTargetTurn;
             private int contacts;
             private int turnedBack;
+            private bool wheelsOff;
+            private int contactSteps;
+            private float contactOffSum;
+            private float contactOffMost;
+            private float contactTurnSum;
+            private float contactTurnMost;
+            private float contactSpeedMost;
+            private float nextContactSay;
 
             /// <summary>Whether this copy has its own physics because a vehicle simulated here is within reach.</summary>
             public bool InContact { get; private set; }
@@ -309,6 +332,14 @@ namespace SummerSync.Unity.Vehicles
                 LooseUntil = 0f;
                 turnedBack = 0;
                 contacts++;
+                contactSteps = 0;
+                contactOffSum = 0f;
+                contactOffMost = 0f;
+                contactTurnSum = 0f;
+                contactTurnMost = 0f;
+                contactSpeedMost = 0f;
+                ContactPuts = 0;
+                nextContactSay = Time.time + ContactSayEvery;
                 contactInterpolation = Body.interpolation;
                 interpolationNoted = true;
                 Body.interpolation = RigidbodyInterpolation.Interpolate;
@@ -336,6 +367,7 @@ namespace SummerSync.Unity.Vehicles
                         + Quaternion.Angle(Body.rotation, lastTargetTurn).ToString("0", CultureInfo.InvariantCulture) + " degrees from where its owner has it: put there,"
                     : ":";
                 InContact = false;
+                WheelsOff(false);
                 Body.isKinematic = true;
                 if (interpolationNoted)
                 {
@@ -351,6 +383,67 @@ namespace SummerSync.Unity.Vehicles
                 }
 
                 log.Info(LogCategory.Vehicle, "Vehicles: '" + Root.name + "' is out of reach of the vehicles simulated here" + off + " a kinematic copy again (" + Crashes + " crash(es) with them so far).");
+                SayContactSteps("while it had its own physics");
+            }
+
+            /// <summary>The game's wheels of the copy switched off (no springs, no grip) or on again as they were.</summary>
+            public void WheelsOff(bool off)
+            {
+                if (off == wheelsOff)
+                {
+                    return;
+                }
+
+                wheelsOff = off;
+                for (int i = 0; i < wheels.Length; i++)
+                {
+                    // Unity's null check is also true for a destroyed object.
+                    if (wheels[i] != null)
+                    {
+                        wheels[i].enabled = !off;
+                    }
+                }
+            }
+
+            /// <summary>How many times, in this contact, the copy was put where its owner has it instead of driven there.</summary>
+            public int ContactPuts { get; set; }
+
+            /// <summary>Notes how far a copy with its own physics was from where its owner has it, at the start of a step.</summary>
+            public void NoteContactStep(float metres, float degrees, float ownerSpeed)
+            {
+                contactSteps++;
+                contactOffSum += metres;
+                contactOffMost = Mathf.Max(contactOffMost, metres);
+                contactTurnSum += degrees;
+                contactTurnMost = Mathf.Max(contactTurnMost, degrees);
+                contactSpeedMost = Mathf.Max(contactSpeedMost, ownerSpeed);
+                if (Time.time >= nextContactSay)
+                {
+                    SayContactSteps("in the last seconds");
+                }
+            }
+
+            // How the copy followed its owner while it had its own physics (the steps since the last line), then from zero.
+            private void SayContactSteps(string when)
+            {
+                nextContactSay = Time.time + ContactSayEvery;
+                if (contactSteps > 0)
+                {
+                    log.Info(
+                        LogCategory.Vehicle,
+                        "Vehicles: '" + Root.name + "', a copy with its own physics, " + when + ": " + contactSteps + " step(s), "
+                        + (contactOffSum / contactSteps).ToString("0.00", CultureInfo.InvariantCulture) + " m from where its owner has it on average and "
+                        + contactOffMost.ToString("0.00", CultureInfo.InvariantCulture) + " m at most, turned " + (contactTurnSum / contactSteps).ToString("0.0", CultureInfo.InvariantCulture)
+                        + " degrees on average and " + contactTurnMost.ToString("0", CultureInfo.InvariantCulture) + " at most, put there " + ContactPuts + " time(s); its owner moved it at up to " + contactSpeedMost.ToString("0.#", CultureInfo.InvariantCulture) + " m/s.");
+                }
+
+                contactSteps = 0;
+                contactOffSum = 0f;
+                contactOffMost = 0f;
+                contactTurnSum = 0f;
+                contactTurnMost = 0f;
+                contactSpeedMost = 0f;
+                ContactPuts = 0;
             }
 
             /// <summary>A copy that turned far from how its owner has it is put that way: the log has the first time in each contact.</summary>
@@ -374,6 +467,7 @@ namespace SummerSync.Unity.Vehicles
                     Body.interpolation = contactInterpolation;
                 }
 
+                WheelsOff(false);
                 InContact = false;
                 interpolationNoted = false;
                 NearUntil = 0.0;

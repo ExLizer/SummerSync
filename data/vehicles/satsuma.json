@@ -41,6 +41,12 @@
     { "name": "radio tuner", "under": "radio(Clone)", "path": "TunerPivot/RadioTuner", "machine": "Knob", "variable": "Tune", "from": 0.05, "step": 0.001, "steps": 60, "states": ["Wait1"] },
     { "name": "parking brake", "path": "MiscParts/HandBrake/handbrake(xxxxx)/handbrake lever", "machine": "Use", "variable": "KnobPos", "step": 2, "steps": 10 },
     { "name": "windscreen", "path": "Body/Windshield", "machine": "Data", "variable": "Damaged", "states": ["Reset", "Break glass"] },
+    { "name": "shift light", "under": "tachometer(xxxx1)", "path": "Pivot/GFX/NeedlePivot", "machine": "Tach", "variable": "SettingRPM",
+      "from": 500, "step": 100, "steps": 90,
+      "copies": [{ "path": "/Database/DatabaseOrders/Tachometer", "machine": "Data", "variable": "RPMSetting", "min": 500, "max": 9500 }] },
+    { "name": "dashboard shift light", "under": "tachometer(xxxx2)", "path": "Pivot/GFX/NeedlePivot", "machine": "Tach", "variable": "SettingRPM",
+      "from": 500, "step": 100, "steps": 90,
+      "copies": [{ "path": "/Database/DatabaseOrders/Tachometer", "machine": "Data", "variable": "RPMSetting", "min": 500, "max": 9500 }] },
     { "name": "turn signals", "path": "Dashboard/TurnSignals", "machine": "Usage", "by": "simulator", "states": ["State 3", "On", "On 2"],
       "during": [["Check player", "State 2", "State 3", "Check steering"], ["On"], ["On 2"]] }
   ],

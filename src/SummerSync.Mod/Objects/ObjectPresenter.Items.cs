@@ -219,6 +219,7 @@ namespace SummerSync.Unity.Objects
             }
 
             item.Signature = ReadItem(item, null);
+            item.Print = ItemPrint(item, true);
             if (item.Signature == before)
             {
                 // What this game had already: its own news coming back, or the same done here too.
@@ -247,21 +248,33 @@ namespace SummerSync.Unity.Objects
                     continue;
                 }
 
+                // Its print first, which makes nothing: the text and the values only when it changed. Its name (Unity makes a
+                // new text each time it is read) once a second.
+                item.Looks++;
+                long print = ItemPrint(item, item.Signature == null || item.Looks % NameLookEvery == 0);
+                if (print == 0 || (item.Signature != null && print == item.Print))
+                {
+                    continue;
+                }
+
                 string now = ReadItem(item, itemValues);
                 if (now == null)
                 {
                     continue;
                 }
 
-                if (item.Signature == null)
+                if (item.Signature == null || now == item.Signature)
                 {
-                    // The first look: what it has now is where it starts from.
+                    // The first look: what it has now is where it starts from. Or a print that changed with no change to
+                    // tell (a number that rounds the same).
                     item.Signature = now;
+                    item.Print = print;
                     continue;
                 }
 
-                if (now == item.Signature || frameNow - item.LastTold < ItemTellInterval)
+                if (frameNow - item.LastTold < ItemTellInterval)
                 {
+                    // Told a moment ago: looked at again later (its print is kept as it was, so it is seen as changed).
                     continue;
                 }
 
@@ -272,7 +285,106 @@ namespace SummerSync.Unity.Objects
                 }
 
                 item.Signature = now;
+                item.Print = print;
             }
+        }
+
+        // A number that changes when what ReadItem reads changes, worked out without making anything: ReadItem makes a text
+        // and values, and ran for every shared thing four times a second (measured on 2026-11-14: the loose objects asked
+        // the memory for 10 MB a minute, and the game's collector stops everything for about 160 ms each time it runs).
+        // Zero for a thing with nothing to read. The name's own number is read again only when asked.
+        private long ItemPrint(Tracked item, bool readName)
+        {
+            PlayMakerFSM use = UseOf(item);
+            PlayMakerFSM contents = ContentsOf(item);
+            PlayMakerFSM pan = PanOf(item);
+            if (use == null && contents == null && pan == null)
+            {
+                return 0;
+            }
+
+            if (readName)
+            {
+                item.NamePrint = Mix(PrintStart, item.Transform.gameObject.name);
+            }
+
+            long print = item.NamePrint;
+            if (contents != null)
+            {
+                FsmFloat[] fluids = contents.FsmVariables.FloatVariables;
+                for (int i = 0; fluids != null && i < fluids.Length; i++)
+                {
+                    if (fluids[i].Name != null && fluids[i].Name.StartsWith(FluidPrefix, System.StringComparison.Ordinal))
+                    {
+                        print = Mix(print, Hundredths(fluids[i].Value));
+                    }
+                }
+            }
+
+            if (pan != null)
+            {
+                print = PanPrint(pan, print);
+            }
+
+            if (use == null)
+            {
+                return print == 0 ? 1 : print;
+            }
+
+            FsmVariables variables = use.FsmVariables;
+            FsmBool[] bools = variables.BoolVariables;
+            for (int i = 0; bools != null && i < bools.Length; i++)
+            {
+                if (IsShared(bools[i].Name))
+                {
+                    print = Mix(print, bools[i].Value ? 1 : 2);
+                }
+            }
+
+            FsmInt[] ints = variables.IntVariables;
+            for (int i = 0; ints != null && i < ints.Length; i++)
+            {
+                if (IsShared(ints[i].Name))
+                {
+                    print = Mix(print, ints[i].Value);
+                }
+            }
+
+            FsmFloat[] floats = variables.FloatVariables;
+            for (int i = 0; floats != null && i < floats.Length; i++)
+            {
+                if (IsShared(floats[i].Name))
+                {
+                    print = Mix(print, Hundredths(floats[i].Value));
+                }
+            }
+
+            return print == 0 ? 1 : print;
+        }
+
+        private const long PrintStart = unchecked((long)14695981039346656037UL);
+        private const long PrintPrime = 1099511628211L;
+        private const int NameLookEvery = 4;
+
+        private static long Mix(long print, long value)
+        {
+            return unchecked((print ^ value) * PrintPrime);
+        }
+
+        private static long Mix(long print, string text)
+        {
+            for (int i = 0; text != null && i < text.Length; i++)
+            {
+                print = Mix(print, text[i]);
+            }
+
+            return print;
+        }
+
+        // A float as the text has it: to two decimals.
+        private static long Hundredths(float value)
+        {
+            return float.IsNaN(value) || float.IsInfinity(value) ? long.MinValue : (long)System.Math.Round(value * 100.0, System.MidpointRounding.AwayFromZero);
         }
 
         // The thing's name and the values of its "Use", of a can's fluid and of the coffee pan, as text to compare, and as

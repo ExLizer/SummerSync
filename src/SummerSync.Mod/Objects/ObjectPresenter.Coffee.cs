@@ -104,6 +104,31 @@ namespace SummerSync.Unity.Objects
             }
         }
 
+        // The pan's part of a thing's print (ObjectPresenter.ItemPrint): what ReadPan reads, not whole.
+        private long PanPrint(PlayMakerFSM pan, long print)
+        {
+            bool cooking = pan.ActiveStateName == CookingState;
+            FsmVariables variables = pan.FsmVariables;
+            FsmBool open = variables.FindFsmBool(CapVariable);
+            if (open != null)
+            {
+                print = Mix(print, open.Value ? 1 : 2);
+            }
+
+            for (int i = 0; i < PanNumbers.Length; i++)
+            {
+                FsmFloat number = variables.FindFsmFloat(PanNumbers[i]);
+                if (number == null || (cooking && Array.IndexOf(CookedNumbers, PanNumbers[i]) >= 0))
+                {
+                    continue;
+                }
+
+                print = Mix(print, Hundredths(number.Value));
+            }
+
+            return print;
+        }
+
         // Another game's pan: its numbers written, and its lid taken off or put back the game's own way.
         private void ApplyPan(Tracked item, IList<ItemValue> values)
         {

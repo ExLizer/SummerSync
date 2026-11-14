@@ -483,6 +483,14 @@ namespace SummerSync.Unity.World
             }
         }
 
+        // An object of the scene by its full path from the root ("/Database/DatabaseOrders/Tachometer"): the game's database of
+        // a part keeps what it saves. Null if it is not there or switched off.
+        private static Transform SceneObject(string path)
+        {
+            GameObject found = GameObject.Find(path);
+            return found == null ? null : found.transform;
+        }
+
         // Sets the angle or the coordinate that the game sets by the knob's float while the player works it.
         private static void Place(Transform moved, KnobMove move, float value)
         {
@@ -557,7 +565,7 @@ namespace SummerSync.Unity.World
                 for (int i = 0; i < described.Copies.Length; i++)
                 {
                     KnobCopy copy = described.Copies[i];
-                    Transform at = knob.Part == null ? null : knob.Part.Find(copy.Path ?? described.Path);
+                    Transform at = KnobCopy.InScene(copy.Path) ? SceneObject(copy.Path) : knob.Part == null ? null : knob.Part.Find(copy.Path ?? described.Path);
                     PlayMakerFSM machine = at == null ? null : DoorSync.FindMachine(at, copy.Machine);
                     knob.Copies[i] = machine == null ? null : machine.FsmVariables.FindFsmFloat(copy.Variable);
                     if (knob.Copies[i] == null)

@@ -33,6 +33,7 @@ namespace SummerSync.Unity
         private PlayerPresenter players;
         private ObjectPresenter objects;
         private PerPlayerThings perPlayer;
+        private FrameMeter frameMeter;
         private bool perPlayerFailed;
         private VehiclePresenter vehicles;
         private DoorSync doors;
@@ -688,6 +689,7 @@ namespace SummerSync.Unity
             ropes = new RopeSync(ModRuntime.Log, ModRuntime.Network.Manager, vehicles, objects);
             heist = new PokerHeistSync(ModRuntime.Log, ModRuntime.Network.Manager, ropes);
             dentsFailed = !DentSync.Working;
+            frameMeter = new FrameMeter(ModRuntime.Log);
             players.OnLevelLoaded(Application.loadedLevelName);
             HostWorld.OnLevelLoaded(Application.loadedLevelName);
             StartCoroutine(AfterEveryPhysicsStep());
@@ -706,6 +708,7 @@ namespace SummerSync.Unity
                     continue;
                 }
 
+                frameMeter.Start(ModRuntime.Network.Now);
                 try
                 {
                     vehicles.AfterPhysics();
@@ -714,11 +717,38 @@ namespace SummerSync.Unity
                 {
                     DisableVehicles(exception);
                 }
+
+                frameMeter.Add(FrameMeter.Part.Physics, ModRuntime.Network.Now);
             }
+        }
+
+        // The frame before, if it took long, is written down with what the mod spent in it; this one starts to be timed.
+        private void MeterFrame()
+        {
+            double now = ModRuntime.Network.Now;
+            try
+            {
+                Transform local = playersFailed ? null : players.LocalPlayer;
+                Vector3 driven;
+                float speed = 0f;
+                if (!vehiclesFailed)
+                {
+                    vehicles.TryGetDriven(out driven, out speed);
+                }
+
+                frameMeter.CheckLastFrame(now, local, ModRuntime.Network.Manager.Session != null, speed);
+            }
+            catch (Exception exception)
+            {
+                ModRuntime.Log.Warning(LogCategory.General, "Timing the frames failed: " + exception.Message);
+            }
+
+            frameMeter.Start(now);
         }
 
         private void Update()
         {
+            MeterFrame();
             if (!pickerFailed && Input.GetKeyDown(CharacterPicker.Key))
             {
                 try
@@ -773,6 +803,7 @@ namespace SummerSync.Unity
                     ChatFailed(exception);
                 }
             }
+            FrameMeter.Mark("chat.Update");
 
             MusicImport.Update(HostWorld.InMenu, ModRuntime.ImportMusic, ModRuntime.Network.Now, ModRuntime.Log);
             CdSync.Update(ModRuntime.Network.Manager, ModRuntime.Log, ModRuntime.Network.Now, ModRuntime.SettingsFolder);
@@ -804,6 +835,7 @@ namespace SummerSync.Unity
             }
 
             UpdateMenuWorlds();
+            frameMeter.Add(FrameMeter.Part.Update, ModRuntime.Network.Now);
         }
 
         // The main menu's "LOAD SAVE" and "HOST", their windows, and the menu's buttons held while a window is open.
@@ -891,6 +923,13 @@ namespace SummerSync.Unity
                 return;
             }
 
+            frameMeter.Start(ModRuntime.Network.Now);
+            FixedUpdateParts();
+            frameMeter.Add(FrameMeter.Part.Physics, ModRuntime.Network.Now);
+        }
+
+        private void FixedUpdateParts()
+        {
             try
             {
                 vehicles.FixedUpdate();
@@ -899,6 +938,7 @@ namespace SummerSync.Unity
             {
                 DisableVehicles(exception);
             }
+            FrameMeter.Mark("vehicles.FixedUpdate");
 
             if (!trafficFailed)
             {
@@ -911,6 +951,7 @@ namespace SummerSync.Unity
                     DisableTraffic(exception);
                 }
             }
+            FrameMeter.Mark("traffic.FixedUpdate");
 
             if (!npcsFailed)
             {
@@ -923,6 +964,7 @@ namespace SummerSync.Unity
                     DisableNpcs(exception);
                 }
             }
+            FrameMeter.Mark("npcs.FixedUpdate");
         }
 
         private void DisableNpcs(Exception exception)
@@ -957,6 +999,14 @@ namespace SummerSync.Unity
         // others are placed right before the camera renders.
         private void LateUpdate()
         {
+            frameMeter.Start(ModRuntime.Network.Now);
+            LateUpdateParts();
+            frameMeter.Add(FrameMeter.Part.Rest, ModRuntime.Network.Now);
+            frameMeter.EndFrame();
+        }
+
+        private void LateUpdateParts()
+        {
             if (playersFailed)
             {
                 return;
@@ -974,7 +1024,9 @@ namespace SummerSync.Unity
                     DisableVehicles(exception);
                 }
             }
+            FrameMeter.Mark("vehicles.LateUpdate");
 
+            frameMeter.Add(FrameMeter.Part.Vehicles, ModRuntime.Network.Now);
             try
             {
                 players.LateUpdate(ModRuntime.Network.Now);
@@ -984,6 +1036,9 @@ namespace SummerSync.Unity
                 DisablePlayers(exception);
                 return;
             }
+            FrameMeter.Mark("players.LateUpdate");
+
+            frameMeter.Add(FrameMeter.Part.Players, ModRuntime.Network.Now);
 
             // Each of these stands or falls by itself: a door that cannot be found must not stop a crate from
             // being carried, nor either of them the players from seeing each other.
@@ -1002,6 +1057,7 @@ namespace SummerSync.Unity
                     ModRuntime.Log.Error(LogCategory.Fsm, "Sharing what the games make failed; what is bought appears only for whoever bought it until the main menu loads again. " + exception);
                 }
             }
+            FrameMeter.Mark("spawns.LateUpdate");
 
             // The helmet and the toolboxes for each player: made before the loose objects look for what is new.
             if (!perPlayerFailed && !objectsFailed)
@@ -1019,6 +1075,7 @@ namespace SummerSync.Unity
                     ModRuntime.Log.Error(LogCategory.Authority, "The helmet and the toolboxes for each player failed; there is one of each until the main menu loads again. " + exception);
                 }
             }
+            FrameMeter.Mark("perPlayer.LateUpdate");
 
             if (!objectsFailed)
             {
@@ -1041,6 +1098,9 @@ namespace SummerSync.Unity
                     }
                 }
             }
+            FrameMeter.Mark("objects.LateUpdate");
+
+            frameMeter.Add(FrameMeter.Part.Objects, ModRuntime.Network.Now);
 
             // A world loaded from the host's save, brought to what the host's world has now: after the makers and the
             // loose objects, which it uses.
@@ -1056,7 +1116,9 @@ namespace SummerSync.Unity
                     ModRuntime.Log.Error(LogCategory.Authority, "Bringing this world to the host's after joining failed; what the host made or ate since its save may differ here. " + exception);
                 }
             }
+            FrameMeter.Mark("joining.LateUpdate");
 
+            frameMeter.Add(FrameMeter.Part.Rest, ModRuntime.Network.Now);
             if (!doorsFailed)
             {
                 try
@@ -1069,6 +1131,9 @@ namespace SummerSync.Unity
                     ModRuntime.Log.Error(LogCategory.Fsm, "Sharing the doors failed; they are the game's alone until the main menu loads again. " + exception);
                 }
             }
+            FrameMeter.Mark("doors.LateUpdate");
+
+            frameMeter.Add(FrameMeter.Part.Doors, ModRuntime.Network.Now);
 
             if (!worldFailed)
             {
@@ -1090,6 +1155,7 @@ namespace SummerSync.Unity
                     }
                 }
             }
+            FrameMeter.Mark("world.LateUpdate");
 
             if (!radioFailed)
             {
@@ -1111,6 +1177,7 @@ namespace SummerSync.Unity
                     }
                 }
             }
+            FrameMeter.Mark("radio.LateUpdate");
 
             if (!throwsFailed && !objectsFailed)
             {
@@ -1124,6 +1191,7 @@ namespace SummerSync.Unity
                     ModRuntime.Log.Error(LogCategory.Player, "Sharing what players throw away after a drink failed; each game shows only its own until the main menu loads again. " + exception);
                 }
             }
+            FrameMeter.Mark("throws.LateUpdate");
 
             if (!pickerFailed)
             {
@@ -1146,6 +1214,7 @@ namespace SummerSync.Unity
                     PickerFailed(exception);
                 }
             }
+            FrameMeter.Mark("looks.LateUpdate");
 
             if (!lobbyFailed)
             {
@@ -1168,6 +1237,7 @@ namespace SummerSync.Unity
                     }
                 }
             }
+            FrameMeter.Mark("lobby.LateUpdate");
 
             if (!firesFailed)
             {
@@ -1189,6 +1259,7 @@ namespace SummerSync.Unity
                     }
                 }
             }
+            FrameMeter.Mark("fires.LateUpdate");
 
             if (!saunasFailed)
             {
@@ -1210,6 +1281,7 @@ namespace SummerSync.Unity
                     }
                 }
             }
+            FrameMeter.Mark("saunas.LateUpdate");
 
             if (!swingsFailed)
             {
@@ -1231,6 +1303,7 @@ namespace SummerSync.Unity
                     }
                 }
             }
+            FrameMeter.Mark("swings.LateUpdate");
 
             if (!fuelFailed && !vehiclesFailed)
             {
@@ -1252,6 +1325,7 @@ namespace SummerSync.Unity
                     }
                 }
             }
+            FrameMeter.Mark("fuel.LateUpdate");
 
             if (!lotteryFailed)
             {
@@ -1273,6 +1347,7 @@ namespace SummerSync.Unity
                     }
                 }
             }
+            FrameMeter.Mark("lottery.LateUpdate");
 
             if (!pubFailed && !objectsFailed)
             {
@@ -1294,6 +1369,7 @@ namespace SummerSync.Unity
                     }
                 }
             }
+            FrameMeter.Mark("pub.LateUpdate");
 
             if (!windowsFailed)
             {
@@ -1307,6 +1383,7 @@ namespace SummerSync.Unity
                     ModRuntime.Log.Error(LogCategory.Fsm, "Sharing the shop's windows failed; a window broken in one game stays whole in the others until the main menu loads again. " + exception);
                 }
             }
+            FrameMeter.Mark("windows.LateUpdate");
 
             if (!woodFailed && !objectsFailed)
             {
@@ -1320,6 +1397,7 @@ namespace SummerSync.Unity
                     ModRuntime.Log.Error(LogCategory.Fsm, "Sharing the wood carrier and the flatbed's pile failed; each game has its own until the main menu loads again. " + exception);
                 }
             }
+            FrameMeter.Mark("wood.LateUpdate");
 
             if (!stoveFailed)
             {
@@ -1333,6 +1411,7 @@ namespace SummerSync.Unity
                     ModRuntime.Log.Error(LogCategory.Fsm, "Sharing the kitchen stove's knobs failed; each game has its own until the main menu loads again. " + exception);
                 }
             }
+            FrameMeter.Mark("stove.LateUpdate");
 
             if (!carFireFailed)
             {
@@ -1346,6 +1425,7 @@ namespace SummerSync.Unity
                     ModRuntime.Log.Error(LogCategory.Vehicle, "Sharing the Satsuma's short circuit and fire failed; each game has its own until the main menu loads again. " + exception);
                 }
             }
+            FrameMeter.Mark("carFire.LateUpdate");
 
             if (!trafficFailed)
             {
@@ -1358,6 +1438,7 @@ namespace SummerSync.Unity
                     DisableTraffic(exception);
                 }
             }
+            FrameMeter.Mark("traffic.LateUpdate");
 
             if (!peopleFailed)
             {
@@ -1379,6 +1460,7 @@ namespace SummerSync.Unity
                     }
                 }
             }
+            FrameMeter.Mark("people.LateUpdate");
 
             if (!npcsFailed)
             {
@@ -1391,6 +1473,7 @@ namespace SummerSync.Unity
                     DisableNpcs(exception);
                 }
             }
+            FrameMeter.Mark("npcs.LateUpdate");
 
             if (!jobsFailed)
             {
@@ -1412,6 +1495,7 @@ namespace SummerSync.Unity
                     }
                 }
             }
+            FrameMeter.Mark("jobs.LateUpdate");
 
             if (!savesFailed)
             {
@@ -1433,6 +1517,7 @@ namespace SummerSync.Unity
                     }
                 }
             }
+            FrameMeter.Mark("saves.LateUpdate");
 
             if (!cdPlayerFailed)
             {
@@ -1454,6 +1539,7 @@ namespace SummerSync.Unity
                     }
                 }
             }
+            FrameMeter.Mark("cdPlayer.LateUpdate");
 
             if (!policeFailed)
             {
@@ -1475,6 +1561,7 @@ namespace SummerSync.Unity
                     }
                 }
             }
+            FrameMeter.Mark("police.LateUpdate");
 
             if (!ordersFailed)
             {
@@ -1496,6 +1583,7 @@ namespace SummerSync.Unity
                     }
                 }
             }
+            FrameMeter.Mark("orders.LateUpdate");
 
             if (!wantedFailed)
             {
@@ -1517,6 +1605,7 @@ namespace SummerSync.Unity
                     }
                 }
             }
+            FrameMeter.Mark("wantedSync.LateUpdate");
 
             if (!knockoutFailed)
             {
@@ -1538,6 +1627,7 @@ namespace SummerSync.Unity
                     }
                 }
             }
+            FrameMeter.Mark("knockout.LateUpdate");
 
             if (!fightersFailed)
             {
@@ -1559,6 +1649,7 @@ namespace SummerSync.Unity
                     }
                 }
             }
+            FrameMeter.Mark("fighters.LateUpdate");
 
             if (!busFailed && !npcsFailed)
             {
@@ -1580,6 +1671,7 @@ namespace SummerSync.Unity
                     }
                 }
             }
+            FrameMeter.Mark("bus.LateUpdate");
 
             if (!phoneFailed)
             {
@@ -1601,6 +1693,7 @@ namespace SummerSync.Unity
                     }
                 }
             }
+            FrameMeter.Mark("phone.LateUpdate");
 
             if (!sleepFailed)
             {
@@ -1622,6 +1715,7 @@ namespace SummerSync.Unity
                     }
                 }
             }
+            FrameMeter.Mark("sleep.LateUpdate");
 
             if (!pokerFailed)
             {
@@ -1643,6 +1737,7 @@ namespace SummerSync.Unity
                     }
                 }
             }
+            FrameMeter.Mark("poker.LateUpdate");
 
             if (!carPartsFailed && !objectsFailed)
             {
@@ -1664,6 +1759,7 @@ namespace SummerSync.Unity
                     }
                 }
             }
+            FrameMeter.Mark("carParts.LateUpdate");
 
             AddChecks(localPlayer);
 
@@ -1679,6 +1775,7 @@ namespace SummerSync.Unity
                     ModRuntime.Log.Error(LogCategory.General, "The photo of the Satsuma when saving failed; the menu's cards keep their last photo. " + exception);
                 }
             }
+            FrameMeter.Mark("photo.LateUpdate");
 
             if (!deathsFailed)
             {
@@ -1692,6 +1789,7 @@ namespace SummerSync.Unity
                     ModRuntime.Log.Error(LogCategory.Player, "Showing the others' deaths and coming back from one failed; until the main menu loads again a death is the game's alone. " + exception);
                 }
             }
+            FrameMeter.Mark("deaths.LateUpdate");
 
             if (!hikersFailed)
             {
@@ -1713,6 +1811,7 @@ namespace SummerSync.Unity
                     }
                 }
             }
+            FrameMeter.Mark("hikers.LateUpdate");
 
             if (!hydraulicsFailed)
             {
@@ -1734,6 +1833,7 @@ namespace SummerSync.Unity
                     }
                 }
             }
+            FrameMeter.Mark("hydraulics.LateUpdate");
 
             if (!ropesFailed)
             {
@@ -1755,6 +1855,7 @@ namespace SummerSync.Unity
                     }
                 }
             }
+            FrameMeter.Mark("ropes.LateUpdate");
 
             if (!heistFailed)
             {
@@ -1776,6 +1877,7 @@ namespace SummerSync.Unity
                     }
                 }
             }
+            FrameMeter.Mark("heist.LateUpdate");
 
             if (!dentsFailed)
             {
@@ -1797,6 +1899,7 @@ namespace SummerSync.Unity
                     }
                 }
             }
+            FrameMeter.Mark("dents.LateUpdate");
 
             if (!guestsFailed)
             {
@@ -1810,6 +1913,7 @@ namespace SummerSync.Unity
                     ModRuntime.Log.Error(LogCategory.Player, "Keeping the guests' needs and places with the host's save failed; a guest starts as the save's player until the main menu loads again. " + exception);
                 }
             }
+            FrameMeter.Mark("guests.LateUpdate");
 
             if (!speechFailed)
             {
@@ -1831,6 +1935,7 @@ namespace SummerSync.Unity
                     }
                 }
             }
+            FrameMeter.Mark("speech.LateUpdate");
 
             if (!televisionFailed)
             {
@@ -1852,6 +1957,7 @@ namespace SummerSync.Unity
                     }
                 }
             }
+            FrameMeter.Mark("television.LateUpdate");
 
             if (!mailboxesFailed)
             {
@@ -1873,6 +1979,7 @@ namespace SummerSync.Unity
                     }
                 }
             }
+            FrameMeter.Mark("mailboxes.LateUpdate");
 
             if (!electricityFailed)
             {
@@ -1894,6 +2001,7 @@ namespace SummerSync.Unity
                     }
                 }
             }
+            FrameMeter.Mark("electricity.LateUpdate");
 
             if (!mountsFailed && !objectsFailed)
             {
@@ -1907,6 +2015,7 @@ namespace SummerSync.Unity
                     ModRuntime.Log.Error(LogCategory.Fsm, "Sharing what is mounted onto things (the bucket's lid, the diskettes, the battery charger) failed; each game has its own until the main menu loads again. " + exception);
                 }
             }
+            FrameMeter.Mark("mountsSync.LateUpdate");
 
             if (!fireworksFailed && !objectsFailed)
             {
@@ -1920,6 +2029,7 @@ namespace SummerSync.Unity
                     ModRuntime.Log.Error(LogCategory.Fsm, "Sharing the lighting of the rockets failed; a rocket flies only in the game where it is lit until the main menu loads again. " + exception);
                 }
             }
+            FrameMeter.Mark("fireworks.LateUpdate");
 
             if (!cabinSmokeFailed)
             {
@@ -1942,6 +2052,7 @@ namespace SummerSync.Unity
                     ModRuntime.Log.Error(LogCategory.Vehicle, "The smoke in the cabins failed; there is none until the main menu loads again. " + exception);
                 }
             }
+            FrameMeter.Mark("cabinSmoke.LateUpdate");
 
             if (!toolsFailed)
             {
@@ -1955,6 +2066,7 @@ namespace SummerSync.Unity
                     ModRuntime.Log.Error(LogCategory.Fsm, "Sharing the hoist's arm and the jack's lift failed; each game has its own until the main menu loads again. " + exception);
                 }
             }
+            FrameMeter.Mark("tools.LateUpdate");
 
             if (!storeFailed)
             {
@@ -1968,6 +2080,7 @@ namespace SummerSync.Unity
                     ModRuntime.Log.Error(LogCategory.Fsm, "Sharing the shop's shelves and till failed; they are each game's own until the main menu loads again. " + exception);
                 }
             }
+            FrameMeter.Mark("store.LateUpdate");
 
             if (!moneyFailed)
             {
@@ -1981,6 +2094,7 @@ namespace SummerSync.Unity
                     ModRuntime.Log.Error(LogCategory.Fsm, "Sharing the money failed; each game has its own until the main menu loads again. " + exception);
                 }
             }
+            FrameMeter.Mark("money.LateUpdate");
         }
 
         private void OnGUI()

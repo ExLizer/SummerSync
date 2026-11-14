@@ -206,10 +206,13 @@ namespace SummerSync.Unity.World
                 }
             }
 
+            FrameMeter.Mark("doors: before");
             for (int i = 0; i < doors.Count; i++)
             {
                 Watch(doors[i], i, now);
             }
+
+            FrameMeter.Mark("doors: Watch");
 
             // The lamps come after the doors in the shared list. What they are told is not taken from the
             // queue of changes: every frame each is compared with what the session says.
@@ -218,10 +221,15 @@ namespace SummerSync.Unity.World
                 WatchLamp(lamps[i], now);
             }
 
+            FrameMeter.Mark("doors: WatchLamp");
             engines.Watch(current, now);
+            FrameMeter.Mark("doors: engines");
             knobs.Watch(current, now);
+            FrameMeter.Mark("doors: knobs");
             horns.Watch(current, now);
+            FrameMeter.Mark("doors: horns");
             tows.Watch(current, now);
+            FrameMeter.Mark("doors: tows");
         }
 
         /// <summary>

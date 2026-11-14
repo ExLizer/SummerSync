@@ -170,8 +170,17 @@ namespace SummerSync.Core.Vehicles
     /// </summary>
     public sealed class KnobCopy
     {
-        /// <summary>Path of the object with the machine, below the same object as the knob's path; null for the knob's own object.</summary>
+        /// <summary>
+        /// Path of the object with the machine, below the same object as the knob's path; null for the knob's own object. A
+        /// path that starts with '/' is from the scene's root (the part's database, which keeps what the game saves).
+        /// </summary>
         public string Path { get; internal set; }
+
+        /// <summary>Whether a copy's path is from the scene's root rather than below the knob's object.</summary>
+        public static bool InScene(string path)
+        {
+            return path != null && path.Length > 1 && path[0] == '/';
+        }
 
         /// <summary>Name of the state machine.</summary>
         public string Machine { get; internal set; }

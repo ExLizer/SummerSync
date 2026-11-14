@@ -21,10 +21,15 @@ namespace SummerSync.Unity.Vehicles
     /// <see cref="NearestMargin"/> nearer than the player whose machine has it, and keeps it until another player is that
     /// much nearer; then it goes back to the host at rest, and from there to whoever is nearest. Only at rest: every change
     /// of machine moves a vehicle a little. A vehicle someone drives or holds is theirs, as always.
+    ///
+    /// Only within <see cref="NearestReach"/> of this player: the game switches a vehicle's "LOD" off at 300 m from its player,
+    /// so farther than that being the nearest gains nothing, and every change of machine is a risk (2026-11-14: two players
+    /// 3 km from the Satsuma, one 30 m nearer, and six vehicles changed machine at once; the Satsuma was thrown on the way).
     /// </summary>
     internal sealed partial class VehiclePresenter
     {
         private const float NearestMargin = 30f;
+        private const float NearestReach = 250f;
 
         private readonly Dictionary<ushort, bool> nearestSaid = new Dictionary<ushort, bool>();
 
@@ -59,8 +64,8 @@ namespace SummerSync.Unity.Vehicles
                 }
                 else
                 {
-                    // Asked for when clearly nearer than whoever has it, nearest of all, and only at rest.
-                    near = mine + NearestMargin < owner && mine <= others && shared.AtRest && vehicle.AtRest;
+                    // Asked for when within reach, clearly nearer than whoever has it, nearest of all, and only at rest.
+                    near = mine <= NearestReach && mine + NearestMargin < owner && mine <= others && shared.AtRest && vehicle.AtRest;
                 }
 
                 bool had = shared.Role == BodyRole.Simulate;

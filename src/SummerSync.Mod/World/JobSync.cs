@@ -199,11 +199,13 @@ namespace SummerSync.Unity.World
 
             heard.Clear();
             ForgetLeftDealers();
+            FrameMeter.Mark("jobs: before the hooks");
             for (int r = 0; r < relays.Count; r++)
             {
                 InjectHooks(relays[r]);
             }
 
+            FrameMeter.Mark("jobs: InjectHooks");
             for (int j = 0; j < jobs.Count; j++)
             {
                 Job job = jobs[j];
@@ -212,10 +214,13 @@ namespace SummerSync.Unity.World
                     Watch(job.Values[v], now);
                 }
 
+                FrameMeter.Mark("jobs: Watch values");
                 for (int s = 0; s < job.Switches.Count; s++)
                 {
                     WatchSwitch(job.Switches[s]);
                 }
+
+                FrameMeter.Mark("jobs: WatchSwitch");
 
                 if (host)
                 {
@@ -647,6 +652,14 @@ namespace SummerSync.Unity.World
             }
 
             Hooked[id] = now;
+            InjectHooks(relay, fsm, id);
+        }
+
+        // Apart from the look above, which runs for every relayed machine in every frame: the hooks below capture the
+        // machine's number, and C# makes the object that holds it on entering the method that declares it, whether a hook
+        // is made or not (the jobs asked the memory for about 8 MB a minute, 2026-11-14).
+        private static void InjectHooks(Relay relay, PlayMakerFSM fsm, int id)
+        {
             JobRelay spec = relay.Spec;
             var held = new FsmStateAction[spec.Spares.Length][];
             for (int s = 0; s < spec.Spares.Length; s++)
@@ -1713,12 +1726,15 @@ namespace SummerSync.Unity.World
         // A colour or a place, said: whoever's game changed it last says all of it.
         private void WatchWide(Value value)
         {
-            int[] read = value.ReadWide();
-            if (read == null)
+            // Read into a buffer in every frame; a new array only for what changed.
+            int count = value.ReadWide(wideBuffer);
+            if (count == 0 || (value.Started && SameAs(wideBuffer, count, value.ToldWide)))
             {
                 return;
             }
 
+            int[] read = new int[count];
+            System.Array.Copy(wideBuffer, read, count);
             if (!value.Started)
             {
                 value.ToldWide = read;
@@ -1734,6 +1750,26 @@ namespace SummerSync.Unity.World
                 current.Set(value.Key, read);
                 log.Info(LogCategory.Fsm, "Jobs: '" + value.Key + "' (" + value.Spec.Variable + ") became " + Describe(read) + " in this game; told.");
             }
+        }
+
+        private readonly int[] wideBuffer = new int[4];
+
+        private static bool SameAs(int[] buffer, int count, int[] told)
+        {
+            if (told == null || told.Length != count)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < count; i++)
+            {
+                if (buffer[i] != told[i])
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         private static bool Same(int[] a, int[] b)
@@ -1921,27 +1957,54 @@ namespace SummerSync.Unity.World
 
             public int[] ReadWide()
             {
+                var read = new int[4];
+                int count = ReadWide(read);
+                if (count == 0)
+                {
+                    return null;
+                }
+
+                if (count == read.Length)
+                {
+                    return read;
+                }
+
+                var some = new int[count];
+                Array.Copy(read, some, count);
+                return some;
+            }
+
+            /// <summary>The colour (four numbers) or the place (three) into <paramref name="into"/>: how many, or 0.</summary>
+            public int ReadWide(int[] into)
+            {
                 // Unity's null check is also true for a destroyed object.
                 if (machine == null)
                 {
-                    return null;
+                    return 0;
                 }
 
                 FsmColor colour = machine.FsmVariables.FindFsmColor(Spec.Variable);
                 if (colour != null)
                 {
                     Color c = colour.Value;
-                    return new[] { Thousandths(c.r), Thousandths(c.g), Thousandths(c.b), Thousandths(c.a) };
+                    into[0] = Thousandths(c.r);
+                    into[1] = Thousandths(c.g);
+                    into[2] = Thousandths(c.b);
+                    into[3] = Thousandths(c.a);
+                    return 4;
                 }
 
                 FsmVector3 place = machine.FsmVariables.FindFsmVector3(Spec.Variable);
                 if (place == null)
                 {
-                    return null;
+                    return 0;
                 }
 
                 Vector3 v = place.Value;
-                return new[] { (int)Math.Round(v.x * Spec.Scale), (int)Math.Round(v.y * Spec.Scale), (int)Math.Round(v.z * Spec.Scale) };
+                into[0] = (int)Math.Round(v.x * Spec.Scale);
+                into[1] = (int)Math.Round(v.y * Spec.Scale);
+                into[2] = (int)Math.Round(v.z * Spec.Scale);
+                return 3;
             }
 
             public bool WriteWide(int[] values)

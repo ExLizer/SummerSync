@@ -32,6 +32,9 @@ namespace SummerSync.Unity.World
         private readonly VehiclePresenter vehicles;
         private readonly List<Horn> horns = new List<Horn>();
 
+        // The parts that carry a button (the steering wheels), found without going through the whole vehicle each time.
+        private readonly PartFinder parts = new PartFinder();
+
         public HornSync(Logger log, VehiclePresenter vehicles)
         {
             this.log = log;
@@ -53,6 +56,7 @@ namespace SummerSync.Unity.World
             }
 
             horns.Clear();
+            parts.Clear();
         }
 
         /// <summary>
@@ -99,7 +103,7 @@ namespace SummerSync.Unity.World
                 int buttons = 0;
                 for (int b = 0; b < horn.Buttons.Length; b++)
                 {
-                    horn.Buttons[b] = FindButton(root, definition.Horn.Buttons[b]);
+                    horn.Buttons[b] = FindButton(root, definition.Horn.Buttons[b], double.NegativeInfinity);
                     buttons += horn.Buttons[b] == null ? 0 : 1;
                 }
 
@@ -198,7 +202,7 @@ namespace SummerSync.Unity.World
                     }
 
                     horn.NextLook[b] = now + LookEvery;
-                    machine = FindButton(horn.Root, described);
+                    machine = FindButton(horn.Root, described, now);
                     horn.Buttons[b] = machine;
                     if (machine == null)
                     {
@@ -212,9 +216,9 @@ namespace SummerSync.Unity.World
             return pressed;
         }
 
-        private static PlayMakerFSM FindButton(Transform root, VehicleHornButton described)
+        private PlayMakerFSM FindButton(Transform root, VehicleHornButton described, double now)
         {
-            Transform holder = described.Under == null ? root : PartFinder.Below(root, described.Under);
+            Transform holder = described.Under == null ? root : double.IsNegativeInfinity(now) ? PartFinder.Below(root, described.Under) : parts.Find(root, described.Under, now);
             Transform at = holder == null ? null : described.Path == null ? holder : holder.Find(described.Path);
             PlayMakerFSM machine = at == null ? null : DoorSync.FindMachine(at, described.Machine);
             return machine != null && DoorSync.HasState(machine, described.Pressed) ? machine : null;

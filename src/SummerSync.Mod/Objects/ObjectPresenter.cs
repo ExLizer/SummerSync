@@ -171,6 +171,9 @@ namespace SummerSync.Unity.Objects
         private bool firstScanDone;
         private int frame;
         private int freezes;
+
+        // The vehicles' count of hand-overs as of the last frame: a new one thaws what rides it at once.
+        private int handOversSeen;
         private GUIStyle labelStyle;
         private Camera camera;
         private bool asksForNear;
@@ -247,6 +250,7 @@ namespace SummerSync.Unity.Objects
 
             frame++;
             frameNow = now;
+            FrameMeter.Mark("objects: before");
             if (now >= nextScan)
             {
                 nextScan = now + ScanInterval;
@@ -258,6 +262,7 @@ namespace SummerSync.Unity.Objects
                 }
             }
 
+            FrameMeter.Mark("objects: Scan");
             TakeFromSave();
 
             // Only a client asks: the host has everything that nobody else has.
@@ -272,21 +277,29 @@ namespace SummerSync.Unity.Objects
                 vehicles.CollectTowed(towed, NearVehicle, NearVehicleSeconds);
             }
 
+            FrameMeter.Mark("objects: TakeFromSave and the near");
             ThrowAway();
             current.SetHeld(InHand());
 
             // Unity's null check is also true for a destroyed object.
             vehicles.SetInHand(hand == null ? null : hand.connectedBody);
+            FrameMeter.Mark("objects: ThrowAway and the hand");
             current.Sample(now);
+            FrameMeter.Mark("objects: Sample");
             ApplyItemNews();
+            FrameMeter.Mark("objects: ApplyItemNews");
             for (int i = tracked.Count - 1; i >= 0; i--)
             {
                 Drive(tracked[i], i);
             }
 
+            FrameMeter.Mark("objects: Drive");
+            handOversSeen = vehicles.HandOvers;
             ReleaseDepenetration(now);
             KeepWiringTool();
+            FrameMeter.Mark("objects: KeepWiringTool");
             WatchItems();
+            FrameMeter.Mark("objects: WatchItems");
             TellJoined();
 
             camera = Camera.main;
@@ -525,7 +538,9 @@ namespace SummerSync.Unity.Objects
                 GameObject go = body.gameObject;
                 bool inHand = go.layer == HeldLayer && body.transform.IsChildOf(player);
                 bool ofJob = !inHand && InJobContainer(body.transform);
-                bool tool = !inHand && !ofJob && go.layer == ToolLayer && go.tag == ToolTag;
+                // Tags compared, not read: Unity makes a new text for each read, and this goes through every body in the world
+                // every three seconds. A name is read only for a body at the root that is not shared yet (a few).
+                bool tool = !inHand && !ofJob && go.layer == ToolLayer && go.CompareTag(ToolTag);
                 bool torn = !inHand && body.transform.parent == null && System.Array.IndexOf(TornLoose, go.name) >= 0;
                 if (go.layer != PickableLayer && !inHand && !ofJob && !tool && !torn)
                 {
@@ -544,8 +559,7 @@ namespace SummerSync.Unity.Objects
                     continue;
                 }
 
-                string tag = go.tag;
-                if (tag != PartTag && tag != ItemTag && !ofJob && !tool && !torn)
+                if (!ofJob && !tool && !torn && !go.CompareTag(PartTag) && !go.CompareTag(ItemTag))
                 {
                     wrongTag++;
                     continue;
@@ -1005,7 +1019,9 @@ namespace SummerSync.Unity.Objects
             Rigidbody body = item.Body;
             if (item.FrozenFar)
             {
-                if (!shared.Held && !shared.Hung && Farther(item, ThawNear))
+                // A vehicle it rides started its physics here (handed over) or moves: it rides along instead of being a wall in it.
+                bool rides = (handOversSeen != vehicles.HandOvers || (frame + item.Stagger) % QuietEvery == 0) && vehicles.RidesAwake(item.Transform.position);
+                if (!shared.Held && !shared.Hung && !rides && Farther(item, ThawNear))
                 {
                     // Still far: it lies where it is, said to be at rest now and then.
                     if ((frame + item.Stagger) % QuietEvery == 0)
@@ -1094,7 +1110,7 @@ namespace SummerSync.Unity.Objects
 
             // Lying still far from the local player (handed back just now, or left there): held where it lies.
             if (live && !shared.Held && !shared.Hung && !body.isKinematic && body.velocity.sqrMagnitude < FreezeRest
-                && body.angularVelocity.sqrMagnitude < FreezeRest && Farther(item, FreezeFar))
+                && body.angularVelocity.sqrMagnitude < FreezeRest && Farther(item, FreezeFar) && !vehicles.RidesAwake(item.Transform.position))
             {
                 body.isKinematic = true;
                 item.MadeKinematic = true;
@@ -1715,6 +1731,15 @@ namespace SummerSync.Unity.Objects
 
             /// <summary>Its name and values as last told or heard, to see what changed; null before the first look.</summary>
             public string Signature;
+
+            /// <summary>The number that changes with <see cref="Signature"/>, made without making anything (ItemPrint); 0 to read it again.</summary>
+            public long Print;
+
+            /// <summary>Its name's part of <see cref="Print"/>, as last read.</summary>
+            public long NamePrint;
+
+            /// <summary>How many times its values were looked at.</summary>
+            public int Looks;
 
             public double LastTold = double.NegativeInfinity;
             private byte describedOwner = byte.MaxValue;

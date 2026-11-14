@@ -1202,6 +1202,7 @@ namespace SummerSync.Unity.Vehicles
                 }
 
                 tracked[i].DropProbe();
+                tracked[i].DropBreakProbes();
             }
 
             handedOver.Clear();
@@ -1524,7 +1525,7 @@ namespace SummerSync.Unity.Vehicles
         private void Simulate(Tracked vehicle, SharedBody shared)
         {
             bool taken = vehicle.Following;
-            vehicle.Restore();
+            vehicle.Restore(taken);
             if (taken)
             {
                 Watch(vehicle, "another machine simulated it until now");
@@ -1544,6 +1545,16 @@ namespace SummerSync.Unity.Vehicles
                     body.angularVelocity = new Vector3(motion.AX, motion.AY, motion.AZ);
                     body.WakeUp();
                 }
+            }
+
+            if (taken)
+            {
+                // Before its first step of physics here: what stands far off its place on the vehicle is put back (a part
+                // pulled back by its joint in one step throws the vehicle), and this is where it goes back to if it is
+                // thrown all the same.
+                PutPartsBack(vehicle, "before its physics starts here");
+                vehicle.NoteHandOverPlace();
+                handOvers++;
             }
 
             motion = default(BodyMotion);
@@ -1784,7 +1795,7 @@ namespace SummerSync.Unity.Vehicles
             // is moved here by the mod, and what breaks off in a crash is the other game's to have (seen on 2026-10-15:
             // the Satsuma driven by another machine shed its doors, fenders and bumpers here). Only how hard they hold
             // is written, as the game itself does (a part's "BoltCheck" sets it from its bolts), never their anchors.
-            private Joint[] partJoints = new Joint[0];
+            private readonly List<Joint> partJoints = new List<Joint>();
             private readonly List<World.PausedMachine> followPaused = new List<World.PausedMachine>();
             private readonly List<Rigidbody> followHeld = new List<Rigidbody>();
             private readonly List<Joint> held = new List<Joint>();
@@ -1860,13 +1871,15 @@ namespace SummerSync.Unity.Vehicles
                     partHomeTurn[i] = Quaternion.Inverse(root.rotation) * parts[i].transform.rotation;
                 }
 
-                var joints = new List<Joint>();
+                partJoints.Clear();
+                partOwnJoints = new Joint[parts.Length][];
                 for (int i = 0; i < parts.Length; i++)
                 {
-                    joints.AddRange(parts[i].GetComponents<Joint>());
+                    partOwnJoints[i] = parts[i].GetComponents<Joint>();
+                    partJoints.AddRange(partOwnJoints[i]);
                 }
 
-                partJoints = joints.ToArray();
+                WatchJointBreaks();
                 if (cockpit != null)
                 {
                     cockpit.Measure();
@@ -2644,7 +2657,14 @@ namespace SummerSync.Unity.Vehicles
             /// <summary>While following, in every frame after the game's own: its parts' joints do not break.</summary>
             public void HoldParts()
             {
-                for (int i = 0; i < partJoints.Length; i++)
+                if (Time.time >= nextJointLook)
+                {
+                    nextJointLook = Time.time + JointLookEvery;
+                    FindNewJoints();
+                    PutAstrayPartsBack();
+                }
+
+                for (int i = 0; i < partJoints.Count; i++)
                 {
                     Joint joint = partJoints[i];
 
@@ -3244,6 +3264,15 @@ namespace SummerSync.Unity.Vehicles
             /// <summary>Back to how the game had it: its own physics, its own controls, its seat on offer.</summary>
             public void Restore()
             {
+                Restore(false);
+            }
+
+            /// <summary>
+            /// The same; with <paramref name="keepPartsHeld"/> its parts' joints go on not breaking until the watch after the
+            /// hand-over ends (<see cref="EndWatch"/>): what the first steps of physics here do to it is not a crash.
+            /// </summary>
+            public void Restore(bool keepPartsHeld)
+            {
                 if (!Following && !seatLocked)
                 {
                     return;
@@ -3267,7 +3296,11 @@ namespace SummerSync.Unity.Vehicles
                 ResumeFollowOff();
                 ForgetContact();
                 ejectReported = false;
-                ReleaseParts();
+                partsHeldThroughWatch = keepPartsHeld;
+                if (!keepPartsHeld)
+                {
+                    ReleaseParts();
+                }
                 DropWorldAnchors();
                 Body.interpolation = interpolationBefore;
                 if (madeKinematic)
