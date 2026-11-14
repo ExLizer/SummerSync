@@ -121,6 +121,11 @@ namespace SummerSync.Unity.World
         private double nextBoltLog;
         private Builder build;
 
+        // Test aid ("ss satsuma loosen <entry>"): an entry whose bolts are being loosened here, and when the next turn may go.
+        private Slot loosening;
+        private double nextLoosen;
+        private int loosenTurns;
+
         public PartSync(Logger log, NetworkManager manager, ObjectPresenter objects, VehiclePresenter vehicles)
         {
             this.log = log;
@@ -258,6 +263,7 @@ namespace SummerSync.Unity.World
                 }
             }
 
+            Loosen(now);
             NoteHeld(now);
         }
 
@@ -1178,6 +1184,20 @@ namespace SummerSync.Unity.World
             {
                 build = new Builder(this);
                 return "Putting the Satsuma together here, the game's way, one part at a time; the others are told each step. 'ss satsuma' says how far it got.";
+            }
+
+            const string LoosenWord = "loosen ";
+            if (what != null && what.StartsWith(LoosenWord, StringComparison.OrdinalIgnoreCase))
+            {
+                PartEntry toLoosen = parts.Find(what.Substring(LoosenWord.Length).Trim());
+                if (toLoosen == null || slots[toLoosen.Index].Bolts.Length == 0)
+                {
+                    return "No entry with bolts called '" + what.Substring(LoosenWord.Length).Trim() + "' (\"ss satsuma\" lists them).";
+                }
+
+                loosening = slots[toLoosen.Index];
+                loosenTurns = 0;
+                return "Loosening the bolts of '" + toLoosen.Name + "' here, the wrench's way, one stage at a time; the others are told each turn.";
             }
 
             PartEntry asked = what == null ? null : parts.Find(what);

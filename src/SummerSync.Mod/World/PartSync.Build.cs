@@ -8,6 +8,37 @@ namespace SummerSync.Unity.World
     /// <summary>"ss satsuma build": a test aid that puts the car together here, the game's way.</summary>
     internal sealed partial class PartSync
     {
+        private const double LoosenEvery = 0.15;
+        private const int LoosenMostTurns = 400;
+
+        // "ss satsuma loosen <entry>" (a test aid): one stage off one of the entry's bolts at a time, the wrench's way, until
+        // they are all out; the game does what it does when a player does it (the block's mounts let the engine go).
+        private void Loosen(double now)
+        {
+            if (loosening == null || now < nextLoosen)
+            {
+                return;
+            }
+
+            nextLoosen = now + LoosenEvery;
+            for (int b = 0; b < loosening.Bolts.Length; b++)
+            {
+                int stage = GameStage(loosening, b, true);
+                if (stage > 0 && loosenTurns < LoosenMostTurns)
+                {
+                    if (Turn(loosening, b, -1))
+                    {
+                        loosenTurns++;
+                    }
+
+                    return;
+                }
+            }
+
+            log.Info(Category, "Car: test aid, the bolts of '" + loosening.Entry.Name + "' loosened here (" + loosenTurns + " turn(s)).");
+            loosening = null;
+        }
+
         /// <summary>
         /// Puts the stock Satsuma together in this game as a player would, one part at a time and in the order the car
         /// goes together: a part lying around goes into its slot through its trigger and its bolts are tightened before

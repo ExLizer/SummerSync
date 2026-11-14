@@ -107,6 +107,16 @@ namespace SummerSync.Unity.Vehicles
             {
                 wheel.Eject(false);
                 done.Append("out of the driving seat of '").Append(wheel.Root.name).Append("'; ");
+
+                // Its belt is undone the game's way once its vehicle is switched on here (VehiclePresenter.DeathBelt), and the
+                // player, out of every vehicle, wears none.
+                wheel.UnbucklePending = true;
+                HutongGames.PlayMaker.FsmBool belted = HutongGames.PlayMaker.FsmVariables.GlobalVariables.FindFsmBool("PlayerSeatbeltsOn");
+                if (belted != null && belted.Value)
+                {
+                    belted.Value = false;
+                    done.Append("its belt to be undone; ");
+                }
             }
 
             for (int i = 0; i < tracked.Count; i++)

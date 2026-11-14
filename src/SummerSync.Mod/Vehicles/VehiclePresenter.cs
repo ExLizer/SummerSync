@@ -309,6 +309,7 @@ namespace SummerSync.Unity.Vehicles
             UpdateNearest();
             UpdateContacts(now);
             UpdateHeads(now);
+            UnbuckleAfterDeath(now);
             for (int i = 0; i < tracked.Count; i++)
             {
                 tracked[i].NoteDeathParts();

@@ -82,7 +82,7 @@ namespace SummerSync.Unity.Net
                 case "asiento":
                     return what.Length > 0 && what != "off" && what != "up" && what != "belt";
                 case "satsuma":
-                    return what == "build";
+                    return what == "build" || what.StartsWith("loosen", System.StringComparison.Ordinal);
                 case "fighter":
                     return what == "punch";
                 default:

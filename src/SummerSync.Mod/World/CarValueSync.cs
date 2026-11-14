@@ -85,6 +85,16 @@ namespace SummerSync.Unity.World
         private readonly HashSet<string> warned = new HashSet<string>();
         private readonly List<AssemblyStep> deferred = new List<AssemblyStep>();
 
+        // Entries broken off in another game that come off here by their bolt check (LetGoBrokenOff), and since when.
+        private readonly List<int> brokenOff = new List<int>();
+        private double brokenOffSince;
+        private const double BrokenOffWait = 30.0;
+        private const string BoltsOffState = "Bolts OFF";
+        private const string LetGoState = "Remove engine";
+        private const string LetGoEvent = "SUMMERSYNC LET GO ";
+        private const string TightnessVariable = "Tightness";
+        private const string BoltedYesVariable = "BoltedYES";
+
         private Transform car;
         private Transform database;
         private SatsumaCatalog parts;
@@ -321,6 +331,7 @@ namespace SummerSync.Unity.World
 
             WatchFlags(now);
             WatchPunctures(now);
+            LetGoBrokenOff(now);
             if (deferred.Count > 0 && now >= settleUntil)
             {
                 var waiting = new List<AssemblyStep>(deferred);
@@ -372,8 +383,17 @@ namespace SummerSync.Unity.World
                         Puncture(entry);
                         break;
                     case SatsumaValues.OutcomeBrokeOff:
-                        // What breaking off does (the bolts to nothing, the parts that fall) comes as steps of its own.
+                        // What breaking off does (the bolts to nothing, the parts that fall) comes as steps of its own. Not the
+                        // block's coming off: no player's step takes it out, its bolt check does once its bolts are out, by
+                        // chance while the clutch or anything else holds it, and a chance waits here for the machine that
+                        // runs the car. So it is let go here the game's way (LetGoBrokenOff).
                         log.Info(LogCategory.Vehicle, "Car numbers: '" + entry.Name + "' broke off in the game of player " + step.Player + ".");
+                        if (!SatsumaAssembly.InstalledBySteps(entry) && !brokenOff.Contains(entry.Index))
+                        {
+                            brokenOff.Add(entry.Index);
+                            brokenOffSince = clock;
+                        }
+
                         break;
                     default:
                         WarnOnce("outcome " + step.Code, "Car numbers: an outcome " + step.Code + " on '" + entry.Name + "' that this build does not know; not done here.");
@@ -407,6 +427,7 @@ namespace SummerSync.Unity.World
             chances.Clear();
             boltChecks.Clear();
             deferred.Clear();
+            brokenOff.Clear();
             flags.Clear();
             punctures.Clear();
             breakOffs.Clear();
@@ -903,6 +924,79 @@ namespace SummerSync.Unity.World
             {
                 WarnOnce("init " + machine.GetInstanceID(), "Car numbers: the machine '" + machine.FsmName + "' on '" + machine.name + "' does not give its actions yet (" + exception.Message + "); tried again later.");
                 return false;
+            }
+        }
+
+        // The parts another machine's game broke off whose coming off is no step (the block): their bolt check here taken to
+        // where it lets the part go ("Remove engine": the hinge to the car off, out from the car, "Bolts OFF"), once their
+        // bolts here are out as well; with them still in, "Bolts OFF" would put the part straight back. Measured with two
+        // copies on 2026-11-14: the host's block broke off as its mounts' bolts came out, and the guest's, its bolts out too,
+        // stayed in the car for good, its chance waiting for the host.
+        private void LetGoBrokenOff(double now)
+        {
+            if (brokenOff.Count == 0 || runsCar)
+            {
+                brokenOff.Clear();
+                return;
+            }
+
+            for (int i = brokenOff.Count - 1; i >= 0; i--)
+            {
+                int entry = brokenOff[i];
+                string done = null;
+                bool waits = false;
+                for (int c = 0; c < boltChecks.Count; c++)
+                {
+                    PlayMakerFSM machine = boltChecks[c].Machine;
+
+                    // Unity's null check is also true for a destroyed object.
+                    if (boltChecks[c].Entry != entry || machine == null)
+                    {
+                        continue;
+                    }
+
+                    if (machine.ActiveStateName == BoltsOffState)
+                    {
+                        done = "it was off here already";
+                        continue;
+                    }
+
+                    FsmFloat tightness = machine.FsmVariables.FindFsmFloat(TightnessVariable);
+                    FsmFloat bolted = machine.FsmVariables.FindFsmFloat(BoltedYesVariable);
+                    if (tightness != null && bolted != null && tightness.Value >= bolted.Value)
+                    {
+                        waits = true;
+                        continue;
+                    }
+
+                    string state = DoorSync.HasState(machine, LetGoState) ? LetGoState : DoorSync.HasState(machine, BreakOffState) ? BreakOffState : null;
+                    if (state == null)
+                    {
+                        done = "its bolt check has no state that lets it go";
+                        continue;
+                    }
+
+                    try
+                    {
+                        machine.AddGlobalTransition(LetGoEvent + state, state);
+                        machine.SendEvent(LetGoEvent + state);
+                        done = "let go here the game's way ('" + state + "', now in '" + machine.ActiveStateName + "')";
+                    }
+                    catch (Exception exception)
+                    {
+                        done = "could not be let go here: " + exception.Message;
+                    }
+                }
+
+                if (waits && done == null && now - brokenOffSince < BrokenOffWait)
+                {
+                    continue;
+                }
+
+                brokenOff.RemoveAt(i);
+                log.Info(
+                    LogCategory.Vehicle,
+                    "Car numbers: '" + parts.Entries[entry].Name + "', which broke off in another game, " + (done ?? (waits ? "still has its bolts in here after " + BrokenOffWait + " s: left as it is" : "has no bolt check here")) + ".");
             }
         }
 
