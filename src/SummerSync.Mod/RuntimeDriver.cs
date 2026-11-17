@@ -117,6 +117,8 @@ namespace SummerSync.Unity
         private bool electricityFailed;
         private MailboxSync mailboxes;
         private bool mailboxesFailed;
+        private BerrySync berries;
+        private bool berriesFailed;
         private TelevisionSync television;
         private bool televisionFailed;
         private SpeechSync speech;
@@ -704,6 +706,7 @@ namespace SummerSync.Unity
             cabinSmoke = new CabinSmoke(ModRuntime.Log, ModRuntime.Network.Manager, vehicles, players);
             electricity = new ElectricitySync(ModRuntime.Log, ModRuntime.Network.Manager);
             mailboxes = new MailboxSync(ModRuntime.Log, ModRuntime.Network.Manager);
+            berries = new BerrySync(ModRuntime.Log, ModRuntime.Network.Manager);
             television = new TelevisionSync(ModRuntime.Log, ModRuntime.Network.Manager);
             speech = new SpeechSync(ModRuntime.Log, ModRuntime.Network.Manager, players);
             guests = new GuestSync(ModRuntime.Log, ModRuntime.Network.Manager);
@@ -2028,6 +2031,28 @@ namespace SummerSync.Unity
                 }
             }
             FrameMeter.Mark("mailboxes.LateUpdate");
+
+            if (!berriesFailed)
+            {
+                try
+                {
+                    berries.LateUpdate(ModRuntime.Network.Now, localPlayer);
+                }
+                catch (Exception exception)
+                {
+                    berriesFailed = true;
+                    ModRuntime.Log.Error(LogCategory.Fsm, "Sharing the strawberry field's bushes failed; each game has its own until the main menu loads again. " + exception);
+                    try
+                    {
+                        berries.Release();
+                    }
+                    catch (Exception)
+                    {
+                        // Whatever broke may break the clean-up too.
+                    }
+                }
+            }
+            FrameMeter.Mark("berries.LateUpdate");
 
             if (!electricityFailed)
             {

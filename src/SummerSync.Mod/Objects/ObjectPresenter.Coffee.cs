@@ -25,6 +25,11 @@ namespace SummerSync.Unity.Objects
     {
         private const string PanName = "coffee pan(itemx)";
         private const string CupName = "coffee cup(itemx)";
+        private const string BerryBoxName = "berry box(Clone)";
+        private const string BerryBoxBerries = "Berries";
+        private const string BerryBoxScale = "Scale";
+        private const string BerryBoxPile = "BerryPivot";
+        private const float BerryBoxFull = 200f;
         private const string PanMachine = "Data";
         private const string PanPrefix = "Data:";
         private const string CapVariable = "CapOpen";
@@ -216,6 +221,39 @@ namespace SummerSync.Unity.Objects
         }
 
         // Another game's cup: its coffee drawn as its numbers say, which the game does only while this game fills it.
+        // The strawberry box draws its fruit only in the state its own player's drop goes through ("Rescale": the pile
+        // switched on and as tall as "Berries" over 200). Filled in another game, the number arrives and the pile is drawn
+        // from it here.
+        private void ShowBerries(Tracked item, PlayMakerFSM use)
+        {
+            if (use == null || item.Transform.name != BerryBoxName)
+            {
+                return;
+            }
+
+            FsmFloat berries = use.FsmVariables.FindFsmFloat(BerryBoxBerries);
+            Transform pile = item.Transform.Find(BerryBoxPile);
+            if (berries == null || pile == null)
+            {
+                return;
+            }
+
+            float height = Mathf.Clamp(berries.Value, 0f, BerryBoxFull) / BerryBoxFull;
+            FsmFloat drawn = use.FsmVariables.FindFsmFloat(BerryBoxScale);
+            if (drawn != null)
+            {
+                drawn.Value = height;
+            }
+
+            Vector3 scale = pile.localScale;
+            scale.z = height;
+            pile.localScale = scale;
+            if (pile.gameObject.activeSelf != berries.Value > 0f)
+            {
+                pile.gameObject.SetActive(berries.Value > 0f);
+            }
+        }
+
         private void ShowCup(Tracked item, PlayMakerFSM use)
         {
             if (use == null || item.Transform.name != CupName || Array.IndexOf(CupBusyStates, use.ActiveStateName) >= 0)

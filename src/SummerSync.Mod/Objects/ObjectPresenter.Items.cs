@@ -55,12 +55,16 @@ namespace SummerSync.Unity.Objects
         // battery or not (measured on 2026-11-09 with a player at the shop), and no player changes those numbers by hand.
         // Told, a worn battery had both games telling each other its three numbers every few seconds (294 times in a session
         // of 72 minutes).
+        //
+        // Of the strawberry box, "Berry" is the berry this game's player has picked and not yet dropped in it (the bush's
+        // trigger sets it and waits for the box to clear it): each player's own.
         private static readonly string[] Unshared =
         {
             "Condition", "Distance", "FridgeDistance", "SpoilingRate", "SpoilingRateFridge", "DestroyProgress",
             "Time", "Vinegar", "Alcohol", "Sweetness", "SugarWaterRatio", "Math0", "Math1", "Math2",
             "Burning", "Burntime", "Pos", "CoffeeInPan",
             "Charge", "ChargeMax", "DischargeRate",
+            "Berry",
         };
 
         // Of those, what a world that joins takes from the host once, as it is there (food's spoiling, how far the bucket
@@ -205,6 +209,7 @@ namespace SummerSync.Unity.Objects
             }
 
             ShowCup(item, use);
+            ShowBerries(item, use);
             if (!string.IsNullOrEmpty(news.Name) && thing.name != news.Name)
             {
                 thing.name = news.Name;
