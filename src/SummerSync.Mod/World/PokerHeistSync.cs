@@ -1,10 +1,12 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using HutongGames.PlayMaker;
 using MSCLoader;
 using SummerSync.Core.Logging;
 using SummerSync.Core.Net;
 using SummerSync.Core.World;
+using SummerSync.Unity.Objects;
 using UnityEngine;
 
 namespace SummerSync.Unity.World
@@ -22,10 +24,13 @@ namespace SummerSync.Unity.World
     ///
     /// Where it breaks loose is decided where the rope pulls: the machine that simulates the car (<see cref="RopeSync"/>),
     /// whose game alone has the joint give, and goes on its own way, Teimo's charge included. That game tells (the tally
-    /// "poker/broken"), and the others break it loose by the game's state that does it, past the charge: the money is one,
-    /// and it is charged once. Broken loose it is a loose object like any other, shared by its name. What is left inside is
-    /// one number for everyone already (<see cref="PokerSync"/>): a click takes from it in the game of whoever clicks, and the
-    /// money goes to that game's player, which is everyone's.
+    /// "poker/broken", with its player: <see cref="PokerHeistWire"/>), and the others break it loose by the game's state
+    /// that does it, past the charge: the money is one, and it is charged once. They do it at once, also far from the pub,
+    /// where the machine hangs switched off below the pub's part of the store: it is taken off there, as its "Break off"
+    /// does, and then sent to that state. Broken loose it is a loose object like any other, shared by its name, and the
+    /// game whose rope pulled it out simulates it from the start: its copy is where that player takes it, not where the
+    /// others' copies broke loose. What is left inside is one number for everyone already (<see cref="PokerSync"/>): a
+    /// click takes from it in the game of whoever clicks, and the money goes to that game's player, which is everyone's.
     /// </summary>
     internal sealed class PokerHeistSync
     {
@@ -35,7 +40,9 @@ namespace SummerSync.Unity.World
         private const string DataMachine = "Data";
         private const string CashVariable = "Cash";
         private const string BreakOffState = "Break off";
-        private const string BrokenTally = "poker/broken";
+        private const string BrokenTally = PokerHeistWire.BrokenKey;
+        private const string CashTally = "poker/cash";
+        private const string LoadedVariable = "Loaded";
         private const string OpenTally = "poker/open";
         private const string LockPath = "Disabled/Money/Lock";
         private const string LockMachine = "Use";
@@ -53,7 +60,11 @@ namespace SummerSync.Unity.World
         private readonly Logger log;
         private readonly NetworkManager manager;
         private readonly RopeSync ropes;
+        private readonly ObjectPresenter objects;
         private TallyReplication current;
+        private HeistSection check;
+        private byte robber;
+        private bool farFailed;
         private bool found;
         private double nextSearch;
         private Transform machine;
@@ -70,11 +81,18 @@ namespace SummerSync.Unity.World
         private bool wasBroken;
         private bool heardBroken;
 
-        public PokerHeistSync(Logger log, NetworkManager manager, RopeSync ropes)
+        public PokerHeistSync(Logger log, NetworkManager manager, RopeSync ropes, ObjectPresenter objects)
         {
             this.log = log;
             this.manager = manager;
             this.ropes = ropes;
+            this.objects = objects;
+        }
+
+        /// <summary>The section of the machine torn out (Fase 8 checksums): whether it is, and the money left in it.</summary>
+        public ICheckSection Check
+        {
+            get { return check ?? (check = new HeistSection(this)); }
         }
 
         /// <summary>Once per frame. <paramref name="localPlayer"/> is the player's root object, or null while there is no game world.</summary>
@@ -123,16 +141,23 @@ namespace SummerSync.Unity.World
                 wasBroken = broken;
                 if (broken && !heardBroken)
                 {
-                    // Torn out in this game, where the rope pulls: its own charge and all. The others are told.
-                    current.Set(BrokenTally, new[] { 1 });
+                    // Torn out in this game, where the rope pulls: its own charge and all. The others are told, and this game
+                    // simulates it from where it is.
+                    current.Set(BrokenTally, PokerHeistWire.PackBroken(manager.Session.LocalPlayerId));
                     log.Info(LogCategory.Vehicle, "Video poker: torn out of the pub in this game, where the rope pulls it; the others are told.");
                 }
             }
 
-            // A machine that is switched off does not hear its events: torn out once the pub is near again.
-            if (!broken && heardBroken && data.enabled && data.gameObject.activeInHierarchy)
+            if (!broken && heardBroken)
             {
-                BreakOff();
+                if (data.enabled && data.gameObject.activeInHierarchy)
+                {
+                    BreakOff(now);
+                }
+                else if (!farFailed && !machine.gameObject.activeInHierarchy)
+                {
+                    BreakOffFar(now);
+                }
             }
 
             Hold(broken);
@@ -191,6 +216,7 @@ namespace SummerSync.Unity.World
             found = false;
             heardBroken = false;
             heardOpen = false;
+            farFailed = false;
         }
 
         private void Find()
@@ -202,7 +228,7 @@ namespace SummerSync.Unity.World
             if (machine == null)
             {
                 // Already broken loose when the world was loaded: it lies at the root by its new name.
-                GameObject loose = GameObject.Find("machine");
+                GameObject loose = GameObject.Find("/machine");
                 machine = loose == null ? null : loose.transform;
             }
 
@@ -276,11 +302,52 @@ namespace SummerSync.Unity.World
             holdChanged = false;
         }
 
-        // Another game tore it out: torn out here by the game's state for it, past the charge, which was that game's.
-        private void BreakOff()
+        // Another game tore it out, and here the machine hangs switched off below the pub's part of the store, which is off
+        // with the player far away: a switched-off machine does not hear its events. It is taken off there first, as its
+        // "Break off" does: switched on, its "Data" starts again from its first state, which waits a few seconds unless the
+        // machine has been loaded ("Loaded"), and then hangs it below the pub again; held at the wait meanwhile.
+        private void BreakOffFar(double now)
+        {
+            FsmBool loaded = data.FsmVariables.FindFsmBool(LoadedVariable);
+            bool wasLoaded = loaded != null && loaded.Value;
+            Transform below = machine.parent;
+            try
+            {
+                if (loaded != null)
+                {
+                    loaded.Value = false;
+                }
+
+                machine.parent = null;
+                if (!data.enabled || !data.gameObject.activeInHierarchy)
+                {
+                    machine.parent = below;
+                    farFailed = true;
+                    log.Warning(LogCategory.Vehicle, "Video poker: torn out in another game, and its machine '" + DataMachine + "' here does not run once off the pub (" + (data.enabled ? "its object is off" : "it is switched off") + "); left in the pub here.");
+                    return;
+                }
+
+                log.Info(LogCategory.Vehicle, "Video poker: torn out in another game while the pub is far from here; taken off the pub here first.");
+                BreakOff(now);
+            }
+            finally
+            {
+                // Unity's null check is also true for a destroyed object.
+                FsmBool after = data == null ? null : data.FsmVariables.FindFsmBool(LoadedVariable);
+                if (after != null)
+                {
+                    after.Value = wasLoaded || after.Value;
+                }
+            }
+        }
+
+        // Another game tore it out: torn out here by the game's state for it, past the charge, which was that game's. That
+        // game simulates it: here it is found as a loose object of that player's.
+        private void BreakOff(double now)
         {
             try
             {
+                objects.Expect(machine.gameObject, robber, now);
                 if (!DoorSync.HasGlobalTransition(data, BreakEvent))
                 {
                     data.AddGlobalTransition(BreakEvent, BreakOffState);
@@ -310,6 +377,37 @@ namespace SummerSync.Unity.World
             }
         }
 
+        private bool CheckReady
+        {
+            // Unity's null check is also true for a destroyed object.
+            get { return current != null && found && machine != null && data != null && cash != null; }
+        }
+
+        private void ReadCheck(List<CheckEntry> entries)
+        {
+            entries.Add(new CheckEntry(ChecksumReplication.KeyOf(BrokenTally), machine.parent == null ? 1UL : 0UL));
+            FsmBool loaded = data.FsmVariables.FindFsmBool(LoadedVariable);
+            if (loaded != null && loaded.Value)
+            {
+                entries.Add(new CheckEntry(ChecksumReplication.KeyOf(CashTally), (ulong)(uint)cash.Value));
+            }
+        }
+
+        // The host: what it says of the machine, told to that client again; its game does with it what it does with the news.
+        private void FixCheckFor(byte player, IList<ulong> keys)
+        {
+            if (keys.Contains(ChecksumReplication.KeyOf(BrokenTally)))
+            {
+                current.ResendTo(player, BrokenTally);
+                current.ResendTo(player, OpenTally);
+            }
+
+            if (keys.Contains(ChecksumReplication.KeyOf(CashTally)))
+            {
+                current.ResendTo(player, CashTally);
+            }
+        }
+
         private void OnStateWanted(string name, int[] values)
         {
             if (values.Length < 1)
@@ -319,11 +417,70 @@ namespace SummerSync.Unity.World
 
             if (name == BrokenTally)
             {
-                heardBroken = values[0] != 0;
+                heardBroken = PokerHeistWire.TryUnpackBroken(values, out robber);
             }
             else if (name == OpenTally)
             {
                 heardOpen = values[0] != 0;
+            }
+        }
+
+        private sealed class HeistSection : ICheckSection
+        {
+            private readonly PokerHeistSync owner;
+
+            public HeistSection(PokerHeistSync owner)
+            {
+                this.owner = owner;
+            }
+
+            public byte Id
+            {
+                get { return CheckSections.PokerHeist; }
+            }
+
+            public string Name
+            {
+                get { return "video poker torn out"; }
+            }
+
+            public bool Ready
+            {
+                get { return owner.CheckReady; }
+            }
+
+            public bool CountsMissing
+            {
+                get { return false; }
+            }
+
+            public bool SendsEntries
+            {
+                get { return false; }
+            }
+
+            public void Read(List<CheckEntry> entries)
+            {
+                owner.ReadCheck(entries);
+            }
+
+            public ulong Coarse(ulong value)
+            {
+                return value;
+            }
+
+            public bool Same(ulong host, ulong here)
+            {
+                return host == here;
+            }
+
+            public void FixHere(IList<ulong> different, IList<ulong> onlyHost, IList<ulong> onlyHere)
+            {
+            }
+
+            public void FixFor(byte player, IList<ulong> keys)
+            {
+                owner.FixCheckFor(player, keys);
             }
         }
     }

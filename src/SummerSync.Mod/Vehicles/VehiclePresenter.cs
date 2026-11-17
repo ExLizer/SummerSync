@@ -316,6 +316,7 @@ namespace SummerSync.Unity.Vehicles
             }
 
             DriveAid();
+            NoteFollowQuality(now);
         }
 
         // The session's clock against the game's: both go at the same pace, so the difference is all but fixed. Read once a
@@ -365,12 +366,14 @@ namespace SummerSync.Unity.Vehicles
                     {
                         Track(vehicle);
                     }
-                    else
+                    else if (Move(vehicle))
                     {
-                        Move(vehicle);
+                        NoteFollowStep(vehicle);
                     }
                 }
             }
+
+            NoteDrivenStep();
         }
 
         /// <summary>Where the vehicle that the local player drives is, and how fast it goes. False on foot.</summary>
@@ -1486,6 +1489,7 @@ namespace SummerSync.Unity.Vehicles
                 var vehicle = new Tracked(definition, root, body, current.AddLocal(root.name, PoseOf(root)), log);
                 tracked.Add(vehicle);
                 log.Info(LogCategory.Vehicle, vehicle.Describe());
+                HookRescues(vehicle);
             }
 
             searched = true;
@@ -1624,13 +1628,15 @@ namespace SummerSync.Unity.Vehicles
             vehicle.ShowControls(controls, hasDriver);
         }
 
-        // In FixedUpdate: takes the vehicle to where its owner's machine has it.
-        private static void Move(Tracked vehicle)
+        // In FixedUpdate: takes the vehicle to where its owner's machine has it. True if that was a step of it moving (for
+        // the measure of how evenly it is shown), with a jump of more than a few metres counted as a jolt.
+        private static bool Move(Tracked vehicle)
         {
             SharedBody shared = vehicle.Shared;
+            vehicle.JoltedNow = false;
             if (shared.Role != BodyRole.Follow || !shared.HasTarget)
             {
-                return;
+                return false;
             }
 
             // Standing where its owner left it, it is not touched again until it moves. Not by Unity either:
@@ -1641,7 +1647,7 @@ namespace SummerSync.Unity.Vehicles
             {
                 BodyPose rest = shared.Target;
                 vehicle.KeepInPlace(new Vector3(rest.X, rest.Y, rest.Z), new Quaternion(rest.QX, rest.QY, rest.QZ, rest.QW));
-                return;
+                return false;
             }
 
             BodyPose target = shared.Target;
@@ -1655,6 +1661,8 @@ namespace SummerSync.Unity.Vehicles
                 // interpolation still on, that last step would leave the transform at a place between two
                 // physics steps for good, and the vehicle would be drawn a little off the doors that hang from
                 // its body (seen on 2026-10-13: every door a touch to one side after the rear door was used).
+                bool jumped = !atRest && vehicle.Placed;
+                vehicle.JoltedNow = jumped;
                 vehicle.Smooth(false);
                 vehicle.Root.position = position;
                 vehicle.Root.rotation = rotation;
@@ -1662,7 +1670,7 @@ namespace SummerSync.Unity.Vehicles
                 vehicle.AtRest = atRest && vehicle.Placed;
                 vehicle.Placed = true;
                 vehicle.NoteStep(Vector3.zero);
-                return;
+                return jumped;
             }
 
             float step = Time.fixedDeltaTime;
@@ -1691,6 +1699,8 @@ namespace SummerSync.Unity.Vehicles
             {
                 vehicle.Speed = Vector3.Dot(moved, rotation * Vector3.forward) / step;
             }
+
+            return true;
         }
 
         // What the player who drives that vehicle is doing with it, as this machine shows that player right now.
@@ -2018,6 +2028,9 @@ namespace SummerSync.Unity.Vehicles
                 if (jolt)
                 {
                     jolts++;
+                    JoltedNow = true;
+                    JoltSize = step.magnitude;
+                    JoltAfter = lastStep.magnitude;
                     if (Time.time >= nextJoltLog)
                     {
                         nextJoltLog = Time.time + (float)PlaceLogEvery;
@@ -2051,9 +2064,29 @@ namespace SummerSync.Unity.Vehicles
                 }
             }
 
+            /// <summary>Whether the last step <see cref="Jolts"/> looked at was a jolt, and its size and the one before it.</summary>
+            public bool JoltedNow { get; set; }
+
+            public float JoltSize { get; private set; }
+
+            public float JoltAfter { get; private set; }
+
+            /// <summary>How evenly this machine shows the vehicle while another machine runs it.</summary>
+            public FollowQuality Quality { get; } = new FollowQuality();
+
+            /// <summary>How far the last step of following took it, in metres.</summary>
+            public float LastStepLength
+            {
+                get { return lastStep.magnitude; }
+            }
+
+            /// <summary>Plain steps of following since the last jolt or the last time it was put somewhere.</summary>
+            public int StepsSinceJolt { get; private set; }
+
             /// <summary>Notes the step the vehicle took; a zero step after it was put somewhere new.</summary>
             public void NoteStep(Vector3 step)
             {
+                StepsSinceJolt = JoltedNow || step == Vector3.zero ? 0 : StepsSinceJolt + 1;
                 lastStep = step;
             }
 

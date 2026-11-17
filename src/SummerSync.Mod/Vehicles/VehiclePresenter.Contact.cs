@@ -66,6 +66,9 @@ namespace SummerSync.Unity.Vehicles
         // Faster than this between two steps, a followed vehicle was put somewhere, not driven there.
         private const float MaxContactSpeed = 70f;
 
+        // Steps of plain following after a jolt before the step a copy is moved at counts as its speed.
+        private const int StepsAfterJolt = 3;
+
         // How often a copy with its own physics says how it followed its owner.
         private const float ContactSayEvery = 5f;
 
@@ -264,6 +267,10 @@ namespace SummerSync.Unity.Vehicles
             private RigidbodyInterpolation contactInterpolation;
             private bool targetKnown;
             private Vector3 lastTarget;
+            private bool ownerKnown;
+            private Vector3 ownerVelocity;
+            private Vector3 ownerSpin;
+            private int ownerJumps;
             private Quaternion lastTargetTurn;
             private int contacts;
             private int turnedBack;
@@ -329,6 +336,8 @@ namespace SummerSync.Unity.Vehicles
 
                 InContact = true;
                 targetKnown = false;
+                ownerKnown = false;
+                ownerJumps = 0;
                 LooseUntil = 0f;
                 turnedBack = 0;
                 contacts++;
@@ -345,8 +354,10 @@ namespace SummerSync.Unity.Vehicles
                 Body.interpolation = RigidbodyInterpolation.Interpolate;
                 Body.isKinematic = false;
 
-                // At the speed it was moved at, unless that step was a jump (a vehicle brought or put somewhere).
-                Vector3 moving = step > 0f ? lastStep / step : Vector3.zero;
+                // At the speed it was moved at, unless that step was a jump (a vehicle brought or put somewhere) or came just
+                // after one: what a jump leaves of the step is no speed (2026-11-17: 45.7 m/s from a 0.9 m jolt after the game
+                // put the Satsuma in the home garage, and the copy thrown into the tractor beside it).
+                Vector3 moving = step > 0f && StepsSinceJolt >= StepsAfterJolt ? lastStep / step : Vector3.zero;
                 Body.velocity = moving.sqrMagnitude > MaxContactSpeed * MaxContactSpeed ? Vector3.zero : moving;
                 Body.angularVelocity = Vector3.zero;
                 Body.WakeUp();
@@ -434,7 +445,8 @@ namespace SummerSync.Unity.Vehicles
                         "Vehicles: '" + Root.name + "', a copy with its own physics, " + when + ": " + contactSteps + " step(s), "
                         + (contactOffSum / contactSteps).ToString("0.00", CultureInfo.InvariantCulture) + " m from where its owner has it on average and "
                         + contactOffMost.ToString("0.00", CultureInfo.InvariantCulture) + " m at most, turned " + (contactTurnSum / contactSteps).ToString("0.0", CultureInfo.InvariantCulture)
-                        + " degrees on average and " + contactTurnMost.ToString("0", CultureInfo.InvariantCulture) + " at most, put there " + ContactPuts + " time(s); its owner moved it at up to " + contactSpeedMost.ToString("0.#", CultureInfo.InvariantCulture) + " m/s.");
+                        + " degrees on average and " + contactTurnMost.ToString("0", CultureInfo.InvariantCulture) + " at most, put there " + ContactPuts + " time(s); its owner moved it at up to " + contactSpeedMost.ToString("0.#", CultureInfo.InvariantCulture) + " m/s"
+                        + (ownerJumps > 0 ? "; " + ownerJumps + " jump(s) of its owner's states not taken as speed." : "."));
                 }
 
                 contactSteps = 0;
@@ -498,12 +510,25 @@ namespace SummerSync.Unity.Vehicles
                     velocity = (position - lastTarget) / step;
                     spin = Spin(lastTargetTurn, rotation, step);
 
-                    // A jump of the owner's states, not a speed.
+                    // A jump of the owner's states, not a speed: far too fast, or a gain no driving gives (a hitch, a late
+                    // state, the vehicle put somewhere by the game). It goes on as its owner moved it before; how far off
+                    // that leaves it is mended by the correction, or by putting it there.
                     if (velocity.sqrMagnitude > MaxSteppedSpeed * MaxSteppedSpeed)
                     {
                         velocity = Vector3.zero;
                         spin = Vector3.zero;
+                        ownerJumps++;
                     }
+                    else if (ownerKnown && OwnerSteps.IsJump(ownerVelocity.x, ownerVelocity.y, ownerVelocity.z, velocity.x, velocity.y, velocity.z, step))
+                    {
+                        velocity = ownerVelocity;
+                        spin = ownerSpin;
+                        ownerJumps++;
+                    }
+
+                    ownerVelocity = velocity;
+                    ownerSpin = spin;
+                    ownerKnown = true;
                 }
                 else
                 {

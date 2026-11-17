@@ -34,6 +34,7 @@
     <EmbeddedResource Include="..\..\data\npcs\*.json" LogicalName="SummerSync.npcs.%(Filename).json" />
     <EmbeddedResource Include="..\..\data\hikers\*.json" LogicalName="SummerSync.hikers.%(Filename).json" />
     <EmbeddedResource Include="..\..\data\fighters\*.json" LogicalName="SummerSync.fighters.%(Filename).json" />
+    <EmbeddedResource Include="..\..\data\bodies\*.json" LogicalName="SummerSync.bodies.%(Filename).json" />
     <EmbeddedResource Include="..\..\data\jobs\*.json" LogicalName="SummerSync.jobs.%(Filename).json" />
     <EmbeddedResource Include="..\..\data\mounts\*.json" LogicalName="SummerSync.mounts.%(Filename).json" />
     <EmbeddedResource Include="..\..\data\satsuma\parts.json" LogicalName="SummerSync.satsuma.parts.json" />

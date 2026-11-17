@@ -28,6 +28,7 @@
     <Content Include="..\..\data\npcs\*.json" Link="data\npcs\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\..\data\hikers\*.json" Link="data\hikers\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\..\data\fighters\*.json" Link="data\fighters\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\data\bodies\*.json" Link="data\bodies\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\..\data\jobs\*.json" Link="data\jobs\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\..\data\mounts\*.json" Link="data\mounts\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\..\data\satsuma\*.json" Link="data\satsuma\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />

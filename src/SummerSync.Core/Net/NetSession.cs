@@ -134,6 +134,10 @@ namespace SummerSync.Core.Net
         private readonly ClockSync clock = new ClockSync();
         private readonly TrafficTestStats traffic = new TrafficTestStats();
 
+        // Windows of crowded sends written down per session (LinkBacklog).
+        private const int BacklogsLogged = 30;
+        private int backlogsSaid;
+
         // A gap this long between two updates means this side was frozen, not that the others went away.
         private const double OwnFreezeSeconds = 2.0;
         private const double TestTrafficSilence = 2.0;
@@ -982,6 +986,15 @@ namespace SummerSync.Core.Net
 
                 Connection connection = remote.Connection;
                 connection.Flush(now, remote.Sender);
+                string crowded;
+                if (remote.Backlog.Note(now, connection.UnreliableLeftOver, connection.ReliableQueueLength, out crowded) && backlogsSaid < BacklogsLogged)
+                {
+                    backlogsSaid++;
+                    log.Warning(
+                        LogCategory.Net,
+                        "Link to player " + remote.PlayerId + ": " + crowded + (backlogsSaid == BacklogsLogged ? " (no more of these lines this session)" : string.Empty));
+                }
+
                 remote.PacketsIn.Update(now, connection.PacketsReceived);
                 remote.PacketsOut.Update(now, connection.PacketsSent);
                 remote.BytesIn.Update(now, connection.BytesReceived);
@@ -1099,6 +1112,9 @@ namespace SummerSync.Core.Net
             public RateSampler PacketsIn { get; }
 
             public RateSampler PacketsOut { get; }
+
+            /// <summary>Whether the sends towards this player leave unreliable messages for later ones.</summary>
+            public LinkBacklog Backlog { get; } = new LinkBacklog();
 
             public RateSampler BytesIn { get; }
 

@@ -46,6 +46,7 @@ namespace SummerSync.Unity.World
         private const double ReadInterval = 0.1;
         private const double IdleSeconds = 2.0;
         private const string CashKey = "poker/cash";
+        private const string LooseName = "machine";
 
         // The machine's buttons, in the order they travel.
         private static readonly string[] ButtonNames = { "InsertCoin", "Deal", "TakeWin", "Bet", "Double", "DoubleHigh", "DoubleLow", "Hold1", "Hold2", "Hold3", "Hold4", "Hold5" };
@@ -131,13 +132,15 @@ namespace SummerSync.Unity.World
                 Search();
             }
 
+            // The money inside is one whether or not the game on its screen is shared: torn out of the pub, it has none.
+            WatchCash();
+
             // Unity's null check is also true for a destroyed object.
             if (!found || menu == null)
             {
                 return;
             }
 
-            WatchCash();
             if (current.IsMine(Panel))
             {
                 if (!working)
@@ -199,7 +202,10 @@ namespace SummerSync.Unity.World
             menu = menuAt == null ? null : DoorSync.FindMachine(menuAt, "Menu");
             PlayMakerFSM money = moneyAt == null ? null : DoorSync.FindMachine(moneyAt, "Money");
             credits = money == null ? null : money.FsmVariables.FindFsmInt("Money_int");
-            PlayMakerFSM data = machine == null ? null : DoorSync.FindMachine(machine, "Data");
+            // Torn out of the pub, the machine lies at the root by the name its "Break off" gives it: its money is still shared.
+            GameObject loose = machine == null ? GameObject.Find("/" + LooseName) : null;
+            Transform holder = machine ?? (loose == null ? null : loose.transform);
+            PlayMakerFSM data = holder == null ? null : DoorSync.FindMachine(holder, "Data");
             cash = data == null ? null : data.FsmVariables.FindFsmInt("Cash");
             loaded = data == null ? null : data.FsmVariables.FindFsmBool("Loaded");
             wins = money == null ? null : money.FsmVariables.FindFsmInt("Wins_int");

@@ -124,6 +124,12 @@ namespace SummerSync.Core.World
 
         /// <summary>The named tallies the host remembers.</summary>
         public const byte Tallies = 8;
+
+        /// <summary>Where the bodies of the people let go as rag dolls lie.</summary>
+        public const byte Bodies = 9;
+
+        /// <summary>The video poker torn out of the pub: whether it is, and the money left in it.</summary>
+        public const byte PokerHeist = 10;
     }
 
     /// <summary>

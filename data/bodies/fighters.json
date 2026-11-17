@@ -1,0 +1,17 @@
+{
+  "format": 1,
+  "bodies": [
+    {
+      "name": "pubfighter",
+      "paths": ["HUMANS/FighterPub/Fighter2/Pivot/RagDoll", "HUMANS/Fighter2/Pivot/RagDoll"],
+      "person": ["HUMANS/FighterPub/Fighter2", "HUMANS/Fighter2"],
+      "still": ["Force"]
+    },
+    {
+      "name": "dancefighter",
+      "paths": ["DANCEHALL/Functions/FIGHTER/Fighter/Pivot/RagDoll"],
+      "person": ["DANCEHALL/Functions/FIGHTER/Fighter"],
+      "still": ["Force"]
+    }
+  ]
+}

@@ -73,6 +73,26 @@ public class VehicleDefinitionTests
         """;
 
     [Fact]
+    public void The_game_states_that_rescue_a_fallen_vehicle_are_path_machine_and_state()
+    {
+        Assert.Empty(VehicleDefinition.Parse(Van).Rescues);
+
+        VehicleDefinition car = VehicleDefinition.Parse(Van.Replace("\"exitMargin\": 0.25,", "\"exitMargin\": 0.25, \"rescues\": [\"::Setup::Move\", \"LOD/Body::Lift::Up\"],"));
+        Assert.Equal(new[] { "::Setup::Move", "LOD/Body::Lift::Up" }, car.Rescues);
+        Assert.True(VehicleDefinition.TrySplitRescue(car.Rescues[0], out string[] root));
+        Assert.Equal(new[] { string.Empty, "Setup", "Move" }, root);
+        Assert.True(VehicleDefinition.TrySplitRescue(car.Rescues[1], out string[] below));
+        Assert.Equal(new[] { "LOD/Body", "Lift", "Up" }, below);
+
+        foreach (string wrong in new[] { "::Setup", "Setup::Move", "::::Move", "::Setup::", "a::b::c::d" })
+        {
+            Assert.False(VehicleDefinition.TrySplitRescue(wrong, out _));
+            var error = Assert.Throws<FormatException>(() => VehicleDefinition.Parse(Van.Replace("\"exitMargin\": 0.25,", "\"exitMargin\": 0.25, \"rescues\": [\"" + wrong + "\"],")));
+            Assert.Contains("path::machine::state", error.Message);
+        }
+    }
+
+    [Fact]
     public void A_vehicle_file_says_what_the_vehicle_is_called_and_where_its_inside_is()
     {
         VehicleDefinition van = VehicleDefinition.Parse(Van);

@@ -528,6 +528,14 @@ namespace SummerSync.Core.Vehicles
         public string[] FollowKinematic { get; private set; }
 
         /// <summary>
+        /// The game's states that put the vehicle back where the scene had it when it is found fallen under the map with the
+        /// player far ("path::machine::state", the path below the root, empty for the root: the Satsuma's "Setup" puts it in
+        /// the home garage): written down with where it was and which machine ran it whenever the game enters one. Empty for
+        /// most.
+        /// </summary>
+        public string[] Rescues { get; private set; }
+
+        /// <summary>
         /// Path, below the root, of the object with the headlight switch: a state machine with an integer
         /// "Selection" (0 off, 1 dipped, 2 full) and the states "Off", "Shorts" and, on most, "Longs". Null if
         /// the lights are not shared.
@@ -766,6 +774,16 @@ namespace SummerSync.Core.Vehicles
                 }
             }
 
+            definition.Rescues = Texts(file, "rescues", what);
+            for (int i = 0; i < definition.Rescues.Length; i++)
+            {
+                string[] parts;
+                if (!TrySplitRescue(definition.Rescues[i], out parts))
+                {
+                    throw new FormatException(what + "'s \"rescues\" has '" + definition.Rescues[i] + "': it needs path::machine::state (an empty path for the root).");
+                }
+            }
+
             return definition;
         }
 
@@ -946,6 +964,29 @@ namespace SummerSync.Core.Vehicles
         }
 
         // A list of texts that may be missing; none of them empty.
+        /// <summary>
+        /// A "path::machine::state" of <see cref="Rescues"/> in its three parts (the path empty for the root). False if it is
+        /// not one.
+        /// </summary>
+        public static bool TrySplitRescue(string rescue, out string[] parts)
+        {
+            parts = null;
+            if (rescue == null)
+            {
+                return false;
+            }
+
+            int first = rescue.IndexOf("::", StringComparison.Ordinal);
+            int second = first < 0 ? -1 : rescue.IndexOf("::", first + 2, StringComparison.Ordinal);
+            if (second < 0 || second == first + 2 || second + 2 >= rescue.Length || rescue.IndexOf("::", second + 2, StringComparison.Ordinal) >= 0)
+            {
+                return false;
+            }
+
+            parts = new[] { rescue.Substring(0, first), rescue.Substring(first + 2, second - first - 2), rescue.Substring(second + 2) };
+            return true;
+        }
+
         private static string[] Texts(Dictionary<string, object> parent, string name, string what)
         {
             object value;

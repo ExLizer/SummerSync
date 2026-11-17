@@ -1,0 +1,11 @@
+{
+  "format": 1,
+  "bodies": [
+    { "name": "alpo", "paths": ["HUMANS/Randomizer/Walkers/Alpo/Pivot/RagDoll"], "person": ["HUMANS/Randomizer/Walkers/Alpo"], "still": ["Force"] },
+    { "name": "julli", "paths": ["HUMANS/Randomizer/Walkers/Julli/Pivot/RagDoll"], "person": ["HUMANS/Randomizer/Walkers/Julli"], "still": ["Force"] },
+    { "name": "kale", "paths": ["HUMANS/Randomizer/Walkers/Kale/Pivot/RagDoll"], "person": ["HUMANS/Randomizer/Walkers/Kale"], "still": ["Force"] },
+    { "name": "kristian", "paths": ["HUMANS/Randomizer/Walkers/Kristian/Pivot/RagDoll"], "person": ["HUMANS/Randomizer/Walkers/Kristian"], "still": ["Force"] },
+    { "name": "rauno", "paths": ["HUMANS/Randomizer/Walkers/Rauno/Pivot/RagDoll"], "person": ["HUMANS/Randomizer/Walkers/Rauno"], "still": ["Force"] },
+    { "name": "unto", "paths": ["HUMANS/Randomizer/Walkers/Unto/Pivot/RagDoll"], "person": ["HUMANS/Randomizer/Walkers/Unto"], "still": ["Force"] }
+  ]
+}

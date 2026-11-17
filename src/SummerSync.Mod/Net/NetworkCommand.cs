@@ -21,7 +21,9 @@ namespace SummerSync.Unity.Net
 
         private const string FighterUsage = "ss fighter [punch [pub|dance] [part]]   How the men who pick a fight are shared here; with punch, a test aid: your fist hits him (part 0 the head)";
 
-        private const string MuffleUsage = "ss muffle [<hertz>|off]   How muffled a vehicle's radio sounds from outside with its doors shut: the highest pitch that gets through (800 to begin with). Without a number, says what it is set to";
+        private const string BodiesUsage = "ss bodies [take <name>]   The bodies of the people let go as rag dolls: whose game simulates each and where it lies; with take, a test aid: this game takes that body, as a hand that drags it";
+
+        private const string MuffleUsage ="ss muffle [<hertz>|off]   How muffled a vehicle's radio sounds from outside with its doors shut: the highest pitch that gets through (800 to begin with). Without a number, says what it is set to";
 
         private const string TravelUsage = "ss tp store   Test aid: takes you, on foot, to the front of Teimo's shop ('ss tp tienda' too)";
 
@@ -85,6 +87,8 @@ namespace SummerSync.Unity.Net
                     return what == "build" || what.StartsWith("loosen", System.StringComparison.Ordinal);
                 case "fighter":
                     return what == "punch";
+                case "bodies":
+                    return what == "take";
                 default:
                     return false;
             }
@@ -163,6 +167,13 @@ namespace SummerSync.Unity.Net
             if (args.Length > 0 && string.Equals(args[0], "cruise", System.StringComparison.OrdinalIgnoreCase))
             {
                 ModConsole.Print(Prefix + RuntimeDriver.Cruise(args.Length > 1 ? args[1] : null, args.Length > 2 ? args[2] : null, args.Length > 3 ? args[3] : null));
+                return;
+            }
+
+            if (args.Length > 0 && string.Equals(args[0], "bodies", System.StringComparison.OrdinalIgnoreCase))
+            {
+                string what = args.Length > 1 ? args[1].ToLowerInvariant() : null;
+                ModConsole.Print(Prefix + RuntimeDriver.Bodies(what, args.Length > 2 ? args[2] : null));
                 return;
             }
 
@@ -286,6 +297,7 @@ namespace SummerSync.Unity.Net
                     ModConsole.Print(WorldUsage);
                     ModConsole.Print(MuffleUsage);
                     ModConsole.Print(FighterUsage);
+                    ModConsole.Print(BodiesUsage);
                     ModConsole.Print(TravelUsage);
                     ModConsole.Print(WoodUsage);
                     ModConsole.Print(LookUsage);

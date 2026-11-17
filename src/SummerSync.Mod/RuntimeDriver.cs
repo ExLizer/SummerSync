@@ -77,6 +77,8 @@ namespace SummerSync.Unity
         private bool trafficFailed;
         private PeopleSync people;
         private bool peopleFailed;
+        private BodySync bodies;
+        private bool bodiesFailed;
         private NpcSync npcs;
         private bool npcsFailed;
         private BusSync bus;
@@ -429,6 +431,26 @@ namespace SummerSync.Unity
             }
         }
 
+        /// <summary>"ss bodies [take &lt;name&gt;]": how the bodies are shared; with take, a test aid: this game takes that body as a hand would.</summary>
+        public static string Bodies(string what, string name)
+        {
+            // Unity's null check is also true for an object that has been destroyed.
+            if (current == null || current.bodies == null || current.bodiesFailed)
+            {
+                return "The mod is not running yet, or sharing the bodies failed (the log says why).";
+            }
+
+            try
+            {
+                return what == "take" ? current.bodies.TestTake(name ?? string.Empty) : current.bodies.Describe();
+            }
+            catch (Exception exception)
+            {
+                ModRuntime.Log.Error(LogCategory.Fsm, "The bodies command failed. " + exception);
+                return "The bodies command failed: " + exception.Message;
+            }
+        }
+
         /// <summary>"ss save": a test aid that saves the world where it is (a guest asks the host), as the toilets do in a session.</summary>
         public static string SaveWorld()
         {
@@ -566,7 +588,9 @@ namespace SummerSync.Unity
                 checks.Add(electricity.Check);
                 checks.Add(mailboxes.Check);
                 checks.Add(new TallyCheckSection(ModRuntime.Network.Manager.Tallies));
-                ModRuntime.Log.Info(LogCategory.Net, "Checksums: 8 sections of this world are checked against the host's every " + ChecksumReplication.IntervalSeconds + " s.");
+                checks.Add(bodies.Check);
+                checks.Add(heist.Check);
+                ModRuntime.Log.Info(LogCategory.Net, "Checksums: 10 sections of this world are checked against the host's every " + ChecksumReplication.IntervalSeconds + " s.");
             }
             catch (Exception exception)
             {
@@ -659,6 +683,7 @@ namespace SummerSync.Unity
             poker = new PokerSync(ModRuntime.Log, ModRuntime.Network.Manager);
             traffic = new TrafficSync(ModRuntime.Log, ModRuntime.Network.Manager);
             people = new PeopleSync(ModRuntime.Log, ModRuntime.Network.Manager);
+            bodies = new BodySync(ModRuntime.Log, ModRuntime.Network.Manager, vehicles);
             npcs = new NpcSync(ModRuntime.Log, ModRuntime.Network.Manager);
             players.Npcs = npcs;
             bus = new BusSync(ModRuntime.Log, ModRuntime.Network.Manager, npcs);
@@ -687,7 +712,7 @@ namespace SummerSync.Unity
             hikers = new HikerSync(ModRuntime.Log, ModRuntime.Network.Manager, vehicles);
             hydraulics = new HydraulicSync(ModRuntime.Log, ModRuntime.Network.Manager, vehicles);
             ropes = new RopeSync(ModRuntime.Log, ModRuntime.Network.Manager, vehicles, objects);
-            heist = new PokerHeistSync(ModRuntime.Log, ModRuntime.Network.Manager, ropes);
+            heist = new PokerHeistSync(ModRuntime.Log, ModRuntime.Network.Manager, ropes, objects);
             dentsFailed = !DentSync.Working;
             frameMeter = new FrameMeter(ModRuntime.Log);
             players.OnLevelLoaded(Application.loadedLevelName);
@@ -1439,6 +1464,29 @@ namespace SummerSync.Unity
                 }
             }
             FrameMeter.Mark("traffic.LateUpdate");
+
+            // Before the people and the fighters: a body let go in this frame is said to be this game's before their death is.
+            if (!bodiesFailed)
+            {
+                try
+                {
+                    bodies.LateUpdate(ModRuntime.Network.Now, localPlayer);
+                }
+                catch (Exception exception)
+                {
+                    bodiesFailed = true;
+                    ModRuntime.Log.Error(LogCategory.Fsm, "Sharing the bodies of the people let go as rag dolls failed; each game moves its own until the main menu loads again. " + exception);
+                    try
+                    {
+                        bodies.Release();
+                    }
+                    catch (Exception)
+                    {
+                        // Whatever broke may break the clean-up too.
+                    }
+                }
+            }
+            FrameMeter.Mark("bodies.LateUpdate");
 
             if (!peopleFailed)
             {
