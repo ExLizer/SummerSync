@@ -35,8 +35,15 @@ namespace SummerSync.Unity.World
     /// it, the joint pulls, and what it tows is held there (<see cref="ObjectReplication.SetHung"/>), unless someone drives it
     /// on another machine: then the joint is slack here, and pulls in that machine, on a copy of the towing vehicle. Elsewhere
     /// the joint pulls only what is each game's own (a junk car at the repair shop), and never what is held to the world (the
-    /// video poker, until it breaks off where the physics runs). A joint the mod tied that breaks where it pulls snaps the
-    /// rope in the game of its player too.
+    /// video poker, until it breaks off where the physics runs). A joint the mod tied that breaks where the rope is decided
+    /// (<see cref="RopePull.Decides"/>: where the towing vehicle runs, or a towed vehicle) snaps the rope in the game of its
+    /// player too.
+    ///
+    /// What is each game's own stands elsewhere in each game once it has been towed: a junk car left where the rope snapped
+    /// in one game rolled on, or was never pulled, in another. So the mod's joint takes the length the two hooks are apart in
+    /// this game when that is more than the rope's (<see cref="TowRules.LengthHere"/>): tied at its player's length it would
+    /// start stretched, break at once and snap the player's rope as soon as it was hooked again. Where the towing vehicle is
+    /// a copy, a break only lets go of this game's own thing, which is tied again a second later at its length here.
     /// </summary>
     internal sealed class RopeSync
     {
@@ -48,6 +55,12 @@ namespace SummerSync.Unity.World
         private const string FrontHookName = "HookFront";
         private const string RearHookName = "HookRear";
         private const double SearchEvery = 3.0;
+
+        // How long after the mod's joint came off where the rope is not decided (or could not be tied there) it is tied again.
+        private const float RetieEvery = 1f;
+
+        // How many times a rope's joint coming off where it is not decided is written down, for each tie.
+        private const int LetGoLogged = 3;
 
         // Where the game has hooks besides the vehicles: the junk cars at the repair shop, the rally car, the friends' cars,
         // the video poker in the pub, and the video poker once it broke loose.
@@ -69,6 +82,7 @@ namespace SummerSync.Unity.World
         private readonly List<Hook> hooks = new List<Hook>();
         private readonly Dictionary<byte, Rope> ropes = new Dictionary<byte, Rope>();
         private readonly List<byte> scratch = new List<byte>();
+        private readonly List<RopeBreakProbe> probes = new List<RopeBreakProbe>();
         private TallyReplication current;
         private NetSession session;
         private Transform player;
@@ -207,6 +221,20 @@ namespace SummerSync.Unity.World
             own.Hook1 = -1;
             own.Hook2 = -1;
             own.Told = false;
+            own.Joint = null;
+            own.SnappedByWord = false;
+            own.BrokeAt = 0f;
+            for (int i = 0; i < probes.Count; i++)
+            {
+                // Unity's null check is also true for a destroyed object.
+                if (probes[i] != null)
+                {
+                    probes[i].Broke = null;
+                    UnityEngine.Object.Destroy(probes[i]);
+                }
+            }
+
+            probes.Clear();
             hooks.Clear();
             status = null;
             found = false;
@@ -367,9 +395,19 @@ namespace SummerSync.Unity.World
 
             if (second >= 0 && joint == null)
             {
+                if (own.Hook2 >= 0)
+                {
+                    // Both ends still on their hooks and the joint gone: it broke, or the mod took it away, and the game lets
+                    // the rope go in a frame. Nothing is told until it has.
+                    return;
+                }
+
                 // Both ends are on hooks, and the game has not made the joint yet: a frame or two.
                 second = -1;
             }
+
+            // Unity said a joint broke on the game's joint's body just now: the rope came off by a pull, not let go of.
+            bool broke = own.Hook2 >= 0 && second < 0 && own.BrokeAt > 0f && Time.time - own.BrokeAt < 1f;
 
             if (joint != own.Joint)
             {
@@ -379,6 +417,8 @@ namespace SummerSync.Unity.World
                 if (joint != null)
                 {
                     own.Spring = joint.spring;
+                    own.BrokeAt = 0f;
+                    WatchBreaks(joint.gameObject);
                 }
             }
 
@@ -393,6 +433,22 @@ namespace SummerSync.Unity.World
                 Slacken(own, false);
             }
 
+            if (own.Hook2 >= 0 && second < 0)
+            {
+                // How it came off (broken, let go of, or snapped by another game's word), and whether this game ran the
+                // towing vehicle then: what tells a snap here from one elsewhere.
+                log.Info(
+                    LogCategory.Vehicle,
+                    "Ropes: the local player's rope came off "
+                    + (own.SnappedByWord ? "because another game said it snapped there"
+                        : broke ? "because its joint broke in this game (" + own.BrokeForce.ToString("0", CultureInfo.InvariantCulture) + " N)"
+                        : "(let go of, or one of its ends switched off)")
+                    + ", " + Metres(own.Apart) + " between " + Label(own.Hook1) + " and " + Label(own.Hook2) + " for a rope of " + Metres(own.MaxMillimetres / 1000f)
+                    + ", where the towing vehicle " + (own.TowerRunsHere ? "runs here" : "is another machine's copy") + ".");
+            }
+
+            own.SnappedByWord = false;
+            own.MaxMillimetres = joint == null ? 0 : Mathf.RoundToInt(joint.maxDistance * 1000f);
             own.Hook1 = first;
             own.Hook2 = second;
             own.Told = true;
@@ -412,6 +468,26 @@ namespace SummerSync.Unity.World
                 LogCategory.Vehicle,
                 "Ropes: the local player's rope is " + (first < 0 ? "not tied" : second < 0 ? "tied to " + Label(first) + ", the other end in the hand" : "tied between " + Label(first) + " and " + Label(second)
                 + " (" + (joint.maxDistance).ToString("0.00", CultureInfo.InvariantCulture) + " m, spring " + joint.spring.ToString("0", CultureInfo.InvariantCulture) + ")") + "; the others are told.");
+        }
+
+        // Unity tells a component on a body when a joint of that body breaks: one on the body the game ties the local
+        // player's rope to says when.
+        private void WatchBreaks(GameObject body)
+        {
+            RopeBreakProbe probe = body.GetComponent<RopeBreakProbe>();
+            if (probe == null)
+            {
+                probe = body.AddComponent<RopeBreakProbe>();
+                probes.Add(probe);
+            }
+
+            probe.Broke = OnOwnJointBreak;
+        }
+
+        private void OnOwnJointBreak(float force)
+        {
+            own.BrokeAt = Time.time;
+            own.BrokeForce = force;
         }
 
         // The game's joint from one body to another, if it has one.
@@ -486,9 +562,11 @@ namespace SummerSync.Unity.World
                 // Someone else's game says the local player's rope snapped where it pulled.
                 if (values[0] == 0 && own.Hook2 >= 0 && own.Joint != null && current != null && !current.CatchingUp)
                 {
+                    // The game sees its joint gone and lets the rope go, as when it breaks. The reference is kept: the
+                    // joint goes at the end of this frame.
                     log.Info(LogCategory.Vehicle, "Ropes: the local player's rope snapped where its physics runs: snapped here too.");
                     UnityEngine.Object.Destroy(own.Joint);
-                    own.Joint = null;
+                    own.SnappedByWord = true;
                 }
 
                 return;
@@ -543,29 +621,73 @@ namespace SummerSync.Unity.World
                 return;
             }
 
-            Hook first = hooks[rope.Hook1];
-            Hook second = rope.Hook2 < 0 ? null : hooks[rope.Hook2];
+            rope.LetGo = 0;
+            MakeJoint(rope);
+            rope.Drawn = MakeDrawing(rope);
+        }
+
+        // The joint between the rope's two hooks, as long as the rope or as its hooks are apart here if that is more (see the
+        // class's summary). Beyond a rope's reach here it is not made, and is looked at again a second later.
+        private void MakeJoint(Rope rope)
+        {
+            rope.RetieAt = 0f;
+            Hook first = rope.Hook1 >= 0 && rope.Hook1 < hooks.Count ? hooks[rope.Hook1] : null;
+            Hook second = rope.Hook2 >= 0 && rope.Hook2 < hooks.Count ? hooks[rope.Hook2] : null;
 
             // Unity's null check is also true for a destroyed object.
-            if (second != null && first.Body != null && second.Body != null && first.Transform != null && second.Transform != null)
+            if (first == null || second == null || first.Body == null || second.Body == null || first.Transform == null || second.Transform == null)
             {
-                SpringJoint joint = first.Body.gameObject.AddComponent<SpringJoint>();
-                joint.autoConfigureConnectedAnchor = false;
-                joint.connectedBody = second.Body;
-                joint.anchor = first.Body.transform.InverseTransformPoint(first.Transform.position);
-                joint.connectedAnchor = second.Body.transform.InverseTransformPoint(second.Transform.position);
-                joint.enableCollision = true;
-                joint.spring = rope.Spring;
-                joint.damper = rope.Damper;
-                joint.minDistance = rope.MinMillimetres / 1000f;
-                joint.maxDistance = rope.MaxMillimetres / 1000f;
-                joint.breakForce = BreakingForce();
-                joint.breakTorque = BreakingForce();
-                rope.Joint = joint;
-                rope.Pulled = true;
+                return;
             }
 
-            rope.Drawn = MakeDrawing(rope);
+            float told = rope.MaxMillimetres / 1000f;
+            float apart = Vector3.Distance(first.Transform.position, second.Transform.position);
+            float length = TowRules.LengthHere(told, apart);
+            if (length < 0f)
+            {
+                rope.RetieAt = Time.time + RetieEvery;
+                if (!rope.FarSaid)
+                {
+                    rope.FarSaid = true;
+                    log.Info(
+                        LogCategory.Vehicle,
+                        "Ropes: player " + rope.Player + "'s rope ties " + Label(rope.Hook1) + " and " + Label(rope.Hook2) + ", " + Metres(apart)
+                        + " apart in this game, beyond a rope's reach (what it tows stands elsewhere here): it is drawn, and pulls once they are within "
+                        + Metres(TowRules.Reach) + ".");
+                }
+
+                return;
+            }
+
+            SpringJoint joint = first.Body.gameObject.AddComponent<SpringJoint>();
+            joint.autoConfigureConnectedAnchor = false;
+            joint.connectedBody = second.Body;
+            joint.anchor = first.Body.transform.InverseTransformPoint(first.Transform.position);
+            joint.connectedAnchor = second.Body.transform.InverseTransformPoint(second.Transform.position);
+            joint.enableCollision = true;
+            joint.spring = rope.Spring;
+            joint.damper = rope.Damper;
+            joint.minDistance = rope.MinMillimetres / 1000f;
+            joint.maxDistance = length;
+            joint.breakForce = BreakingForce();
+            joint.breakTorque = BreakingForce();
+            rope.Joint = joint;
+            rope.Length = length;
+            rope.Pulled = true;
+            rope.Slack = false;
+            if (rope.FarSaid)
+            {
+                rope.FarSaid = false;
+                log.Info(LogCategory.Vehicle, "Ropes: player " + rope.Player + "'s rope's hooks are " + Metres(apart) + " apart here now, within a rope's reach: it is tied here too.");
+            }
+
+            if (length > told + 0.05f)
+            {
+                log.Info(
+                    LogCategory.Vehicle,
+                    "Ropes: player " + rope.Player + "'s rope is tied here at " + Metres(length) + ", longer than the " + Metres(told)
+                    + " it was tied at: its hooks are that far apart in this game.");
+            }
         }
 
         // The game's own breaking force for a rope, from the local player's.
@@ -587,6 +709,9 @@ namespace SummerSync.Unity.World
 
             rope.Joint = null;
             rope.Pulled = false;
+            rope.Snapped = false;
+            rope.RetieAt = 0f;
+            rope.FarSaid = false;
             if (rope.Drawn != null)
             {
                 UnityEngine.Object.Destroy(rope.Drawn.Root);
@@ -608,19 +733,6 @@ namespace SummerSync.Unity.World
                 return;
             }
 
-            if (!rope.Own && rope.Pulled && rope.Joint == null)
-            {
-                // The mod's joint broke here: if it pulled here, the rope snapped where its physics runs.
-                rope.Pulled = false;
-                if (rope.Pulls)
-                {
-                    log.Info(LogCategory.Vehicle, "Ropes: player " + rope.Player + "'s rope snapped here, where it pulls: they are told.");
-                    current.Set(TallyPrefix + rope.Player.ToString(CultureInfo.InvariantCulture), new int[6]);
-                }
-
-                return;
-            }
-
             // Looked at now and then: getting a body's joints makes garbage. Each end's body may be held to the world.
             if (Time.time >= rope.AnchorLookAt || rope.AnchorOf != first.Body || rope.SecondAnchorOf != second.Body)
             {
@@ -632,9 +744,52 @@ namespace SummerSync.Unity.World
             }
 
             RopePull pull = TowRules.Decide(EndOf(first, rope.Anchored), EndOf(second, rope.SecondAnchored));
+            rope.Apart = first.Transform == null || second.Transform == null ? 0f : Vector3.Distance(first.Transform.position, second.Transform.position);
+            rope.TowerRunsHere = pull.HoldsTowed;
+            if (!rope.Own && rope.Pulled && rope.Joint == null)
+            {
+                // The mod's joint broke here. Where the rope is decided, it snapped for everyone; elsewhere only this game's
+                // own thing is let go, and tied again.
+                rope.Pulled = false;
+                if (pull.Decides)
+                {
+                    rope.Snapped = true;
+                    log.Info(
+                        LogCategory.Vehicle,
+                        "Ropes: player " + rope.Player + "'s rope snapped here, where its physics runs (" + Metres(rope.Apart) + " between its hooks for a joint of "
+                        + Metres(rope.Length) + "): they are told.");
+                    current.Set(TallyPrefix + rope.Player.ToString(CultureInfo.InvariantCulture), new int[6]);
+                }
+                else
+                {
+                    rope.RetieAt = Time.time + RetieEvery;
+                    rope.LetGo++;
+                    if (rope.LetGo <= LetGoLogged)
+                    {
+                        log.Info(
+                            LogCategory.Vehicle,
+                            "Ropes: player " + rope.Player + "'s rope came off here, where the towing vehicle is another machine's copy (" + Metres(rope.Apart)
+                            + " between its hooks for a joint of " + Metres(rope.Length) + "): only what it tows in this game is let go, and tied again in a second; their rope stays tied"
+                            + (rope.LetGo == LetGoLogged ? " (no more of these lines for this tie)." : "."));
+                    }
+                }
+
+                return;
+            }
+
+            if (!rope.Own && !rope.Pulled && !rope.Snapped && rope.RetieAt > 0f && Time.time >= rope.RetieAt)
+            {
+                MakeJoint(rope);
+            }
+
             rope.Pulls = pull.Pulls;
             Slacken(rope, !pull.Pulls);
             Hang(rope, pull.HoldsTowed ? (pull.FirstTows ? second : first) : null);
+        }
+
+        private static string Metres(float metres)
+        {
+            return metres.ToString("0.00", CultureInfo.InvariantCulture) + " m";
         }
 
         private RopeEnd EndOf(Hook hook, bool anchored)
@@ -931,6 +1086,35 @@ namespace SummerSync.Unity.World
 
             public bool Pulls { get; set; }
 
+            /// <summary>How long the mod's joint for it is here (<see cref="TowRules.LengthHere"/>).</summary>
+            public float Length { get; set; }
+
+            /// <summary>How far apart its two hooks were in this game the last time it was looked at.</summary>
+            public float Apart { get; set; }
+
+            /// <summary>Whether the towing vehicle ran its physics here the last time it was looked at.</summary>
+            public bool TowerRunsHere { get; set; }
+
+            /// <summary>The mod's joint for it broke where the rope is decided, and its player was told: it is not tied again.</summary>
+            public bool Snapped { get; set; }
+
+            /// <summary>When the mod's joint, which came off here or could not be made, is to be tied again; 0 for never.</summary>
+            public float RetieAt { get; set; }
+
+            /// <summary>Its hooks being out of a rope's reach here was written down.</summary>
+            public bool FarSaid { get; set; }
+
+            /// <summary>How many times its joint came off here, where the rope is not decided, since it was tied.</summary>
+            public int LetGo { get; set; }
+
+            /// <summary>For the local player's rope: the mod took its joint away because another game said it snapped there.</summary>
+            public bool SnappedByWord { get; set; }
+
+            /// <summary>For the local player's rope: when a joint on the body its joint is on last broke, and how hard it was pulled.</summary>
+            public float BrokeAt { get; set; }
+
+            public float BrokeForce { get; set; }
+
             /// <summary>Whether each end's body is held to the world, as last looked at, and when to look again.</summary>
             public bool Anchored { get; set; }
 
@@ -961,6 +1145,21 @@ namespace SummerSync.Unity.World
             public Transform Second { get; set; }
 
             public SkinnedMeshRenderer Skin { get; set; }
+        }
+    }
+
+    /// <summary>Tells <see cref="RopeSync"/> when a joint of the body it is on breaks (Unity sends that to the body's components).</summary>
+    internal sealed class RopeBreakProbe : MonoBehaviour
+    {
+        public System.Action<float> Broke;
+
+        private void OnJointBreak(float breakForce)
+        {
+            System.Action<float> broke = Broke;
+            if (broke != null)
+            {
+                broke(breakForce);
+            }
         }
     }
 }

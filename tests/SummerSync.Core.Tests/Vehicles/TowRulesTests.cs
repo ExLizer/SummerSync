@@ -59,6 +59,55 @@ public class TowRulesTests
         Assert.True(TowRules.Decide(Vehicle(rear: true, runsHere: false), Thing(runsHere: true)).Pulls);
     }
 
+    [Fact]
+    public void A_junk_car_dragged_after_a_copy_of_the_towing_vehicle_does_not_decide_when_the_rope_snaps()
+    {
+        // Every game drags its own junk car, but only the game that runs the van's physics has the rope as it really is:
+        // a break there snaps the rope for everyone.
+        RopePull towing = TowRules.Decide(Vehicle(rear: true, runsHere: true), Thing(runsHere: true));
+        Assert.True(towing.Pulls);
+        Assert.True(towing.Decides);
+
+        // Where the van is a copy, the junk car stands where it stands in that game alone: its joint breaking there (tied
+        // longer than it is here, or yanked by the copy) is only that game's.
+        RopePull watching = TowRules.Decide(Vehicle(rear: true, runsHere: false), Thing(runsHere: true));
+        Assert.True(watching.Pulls);
+        Assert.False(watching.Decides);
+
+        // The same with the junk car's hook tied first.
+        Assert.False(TowRules.Decide(Thing(runsHere: true), Vehicle(rear: false, runsHere: false)).Decides);
+        Assert.True(TowRules.Decide(Thing(runsHere: true), Vehicle(rear: false, runsHere: true)).Decides);
+    }
+
+    [Fact]
+    public void A_towed_vehicle_decides_where_it_is_pulled_as_before()
+    {
+        // Held by the machine that runs the van.
+        Assert.True(TowRules.Decide(Vehicle(rear: true, runsHere: true), Vehicle(rear: false, runsHere: true)).Decides);
+
+        // Driven on another machine than the van's: the rope pulls only there, after the copy of the van, and only there it
+        // can snap.
+        Assert.True(TowRules.Decide(Vehicle(rear: true, runsHere: false), Vehicle(rear: false, runsHere: true)).Decides);
+        Assert.False(TowRules.Decide(Vehicle(rear: true, runsHere: true), Vehicle(rear: false, runsHere: false)).Decides);
+
+        // Where nothing pulls, nothing decides.
+        Assert.False(TowRules.Decide(Vehicle(rear: true, runsHere: false), Vehicle(rear: false, runsHere: false)).Decides);
+        Assert.False(TowRules.Decide(Vehicle(rear: true, runsHere: false), Thing(runsHere: true, anchored: true)).Decides);
+        Assert.True(TowRules.Decide(Vehicle(rear: true, runsHere: true), Thing(runsHere: true, anchored: true)).Decides);
+    }
+
+    [Theory]
+    [InlineData(4.0f, 3.0f, 4.0f)] // closer here than where it was tied: as tied, slack until it stretches to that
+    [InlineData(4.0f, 4.0f, 4.0f)]
+    [InlineData(4.0f, 6.5f, 6.5f)] // the junk car stands farther here: as long as it is here, not stretched
+    [InlineData(4.0f, 8.0f, 8.0f)]
+    [InlineData(4.0f, 8.01f, -1f)] // beyond a rope's reach here: not tied in this game
+    [InlineData(4.0f, float.NaN, -1f)]
+    public void A_rope_tied_for_another_player_is_never_stretched_when_it_is_tied(float told, float apart, float length)
+    {
+        Assert.Equal(length, TowRules.LengthHere(told, apart));
+    }
+
     [Theory]
     [InlineData(true, false, false, false, true)]
     [InlineData(false, false, true, false, false)]
