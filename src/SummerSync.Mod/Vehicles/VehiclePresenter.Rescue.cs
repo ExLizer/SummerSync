@@ -50,6 +50,11 @@ namespace SummerSync.Unity.Vehicles
                     continue;
                 }
 
+                if (vehicle.RescueMachine == null)
+                {
+                    vehicle.RescueMachine = machine;
+                }
+
                 int id = machine.GetInstanceID();
                 if (RescueHooked.Contains(id))
                 {
@@ -122,11 +127,6 @@ namespace SummerSync.Unity.Vehicles
 
         private void SayRescued(string root, PlayMakerFSM machine)
         {
-            if (rescuesSaid >= RescuesLogged)
-            {
-                return;
-            }
-
             Tracked vehicle = null;
             for (int i = 0; i < tracked.Count; i++)
             {
@@ -135,6 +135,17 @@ namespace SummerSync.Unity.Vehicles
                     vehicle = tracked[i];
                     break;
                 }
+            }
+
+            if (vehicle != null)
+            {
+                // The game puts it there itself; noted for the line about a vehicle not drawn where its owner has it.
+                vehicle.NotePut("the game's own rescue");
+            }
+
+            if (rescuesSaid >= RescuesLogged)
+            {
+                return;
             }
 
             Transform car = vehicle != null ? vehicle.Root : machine.transform;

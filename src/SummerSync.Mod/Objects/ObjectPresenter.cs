@@ -91,6 +91,12 @@ namespace SummerSync.Unity.Objects
         private const float FreezeRest = 0.01f;
         private const int FreezesLogged = 5;
 
+        // A thing the mod puts more than this far from where this game showed it, in one go, is named in the log with what
+        // put it there ("Jump:"), so that a thing seen to jump back somewhere can be told from the log; so many a session, and
+        // then only counted.
+        private const float JumpLogged = 1f;
+        private const int JumpsLogged = 40;
+
         // How often, in frames, each object is asked whether it is near; and what near is: within arm's reach
         // of the player, or within this many metres of the vehicle they drive plus what it covers in two seconds.
         private const int NearEvery = 6;
@@ -171,6 +177,7 @@ namespace SummerSync.Unity.Objects
         private bool firstScanDone;
         private int frame;
         private int freezes;
+        private int jumps;
 
         // The vehicles' count of hand-overs as of the last frame: a new one thaws what rides it at once.
         private int handOversSeen;
@@ -1011,12 +1018,44 @@ namespace SummerSync.Unity.Objects
             return player != null && (item.Transform.position - player.position).sqrMagnitude > distance * distance;
         }
 
+        // The mod is about to put a thing at <paramref name="to"/>: named in the log if that is a jump from where this game
+        // shows it (a measurement: what put a thing back somewhere it had left).
+        private void NoteJump(Tracked item, Vector3 to, string why)
+        {
+            Vector3 from = item.Transform.position;
+            float far = (to - from).magnitude;
+            if (far <= JumpLogged)
+            {
+                return;
+            }
+
+            jumps++;
+            if (jumps > JumpsLogged)
+            {
+                if (jumps % 50 == 0)
+                {
+                    log.Info(LogCategory.Authority, "Jump: " + jumps + " things put more than " + Format(JumpLogged) + " m from where they were shown here so far (not named after the first " + JumpsLogged + ").");
+                }
+
+                return;
+            }
+
+            SharedBody shared = item.Shared;
+            log.Info(
+                LogCategory.Authority,
+                "Jump: '" + shared.Name + "' (object " + shared.Id + ", " + (shared.Role == BodyRole.Simulate ? "simulated here" : "player " + shared.Owner + "'s") + ") put "
+                + Format(far) + " m from where it was shown here, from (" + Format(from.x) + ", " + Format(from.y) + ", " + Format(from.z) + ") to (" + Format(to.x) + ", "
+                + Format(to.y) + ", " + Format(to.z) + "): " + why + ". This game's player is " + (player == null ? "nowhere" : Format((to - player.position).magnitude) + " m from it") + "."
+                + (jumps == JumpsLogged ? " (No more of these named this session.)" : string.Empty));
+        }
+
         private void Simulate(Tracked item, SharedBody shared)
         {
             Unhide(item);
             PassThroughVehicles(item, false);
             Solid(item);
             Rigidbody body = item.Body;
+            bool thawed = false;
             if (item.FrozenFar)
             {
                 // A vehicle it rides started its physics here (handed over) or moves: it rides along instead of being a wall in it.
@@ -1029,11 +1068,25 @@ namespace SummerSync.Unity.Objects
                         shared.Report(PoseOf(item.Transform), default(BodyMotion), false);
                     }
 
+                    if (shared.HandOffWaiting && !item.HandOffNoted)
+                    {
+                        // A measurement: handed over to this game while it is held here, it is still told to be where it lies.
+                        item.HandOffNoted = true;
+                        Vector3 lying = item.Transform.position;
+                        log.Info(
+                            LogCategory.Authority,
+                            "Jump: '" + shared.Name + "' (object " + shared.Id + ") was handed over to this game while held where it lies far from this game's player, at ("
+                            + Format(lying.x) + ", " + Format(lying.y) + ", " + Format(lying.z) + "): it goes where it was handed over when the player comes near.");
+                    }
+
                     return;
                 }
 
+                item.HandOffNoted = false;
+
                 // Its physics back, below, as for a thing this machine takes over.
                 item.FrozenFar = false;
+                thawed = true;
             }
 
             // Switched off by the hand, its body is not in the physics: only its place is read.
@@ -1077,6 +1130,12 @@ namespace SummerSync.Unity.Objects
 
                 if (placed && live)
                 {
+                    NoteJump(
+                        item,
+                        position,
+                        thawed
+                            ? "handed over to this game while it was held where it lay far from this game's player, who has just come near"
+                            : "handed over to this game where the game that had it left it");
                     item.Transform.position = position;
                     item.Transform.rotation = rotation;
                     if (!body.isKinematic)
@@ -1265,7 +1324,19 @@ namespace SummerSync.Unity.Objects
                 if (!atRest || !item.AtRest)
                 {
                     BodyPose target = shared.Target;
-                    item.Transform.position = new Vector3(target.X, target.Y, target.Z);
+                    var to = new Vector3(target.X, target.Y, target.Z);
+                    if (item.PutBackByCheck || (item.Transform.position - to).sqrMagnitude > JumpLogged * JumpLogged)
+                    {
+                        NoteJump(
+                            item,
+                            to,
+                            item.PutBackByCheck
+                                ? "put back where the host's game has it at rest (the checksums found it elsewhere here)"
+                                : (shared.Held ? "in player " + shared.Owner + "'s hand there" : "player " + shared.Owner + "'s game has it there" + (atRest ? ", at rest" : string.Empty)));
+                        item.PutBackByCheck = false;
+                    }
+
+                    item.Transform.position = to;
                     item.Transform.rotation = new Quaternion(target.QX, target.QY, target.QZ, target.QW);
                     item.AtRest = atRest;
                     item.Quiet = false;
@@ -1794,6 +1865,12 @@ namespace SummerSync.Unity.Objects
 
             /// <summary>Held where it lies, kinematic, because it lies far from the local player (FreezeFar).</summary>
             public bool FrozenFar { get; set; }
+
+            /// <summary>To be put back where the host has it at rest, because the checksums found it elsewhere here.</summary>
+            public bool PutBackByCheck { get; set; }
+
+            /// <summary>A take-over that waits while it is held far away has been named in the log.</summary>
+            public bool HandOffNoted { get; set; }
 
             public bool AtRest { get; set; }
 

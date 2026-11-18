@@ -165,6 +165,7 @@ namespace SummerSync.Unity.Vehicles
                         LogCategory.Vehicle,
                         "'" + Root.name + "', which another machine simulates, had " + put + " part(s) far off their places on it: " + said + "; put back ("
                         + astrayPut + " so far; the vehicle " + (AtRest ? "at rest" : "moving") + (InContact ? ", with its own physics near a vehicle simulated here" : string.Empty)
+                        + ", drawn " + Metres((Root.position - Body.position).magnitude) + " from its body"
                         + ")" + (astraySaid == AstrayLogged ? " (no more of these lines for it)." : "."));
                 }
             }

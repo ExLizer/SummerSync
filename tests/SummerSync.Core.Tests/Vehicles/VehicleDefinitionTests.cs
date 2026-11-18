@@ -771,6 +771,27 @@ public class VehicleDefinitionTests
     }
 
     [Fact]
+    public void The_doors_that_say_whether_they_are_open_like_a_buildings_door_are_listed()
+    {
+        string folder = Path.Combine(AppContext.BaseDirectory, "data", "vehicles");
+        var vehicles = Directory.GetFiles(folder, "*.json").Select(f => VehicleDefinition.Parse(File.ReadAllText(f))).ToDictionary(v => v.Nick);
+
+        // Its machine "Use" keeps "DoorOpen", as the buildings' doors do; the vehicles' own doors keep "Open".
+        Assert.Equal(new[] { "Bed/HatchPivot/flatbed_hatch" }, vehicles["flatbed"].Hatches);
+
+        // The fuel fillers' hatches and the combine's door, the same. The Satsuma's filler is on a part that comes off.
+        Assert.Equal(new[] { "LOD/FuelFiller/Pivot/body_fuel_hatch/Trigger" }, vehicles["van"].Hatches);
+        Assert.Equal(new[] { "LOD/FuelFiller 1/Pivot/body_fuel_hatch/Trigger" }, vehicles["ferndale"].Hatches);
+        Assert.Equal(new[] { "PIVOT/Door/Pivot/door/coll" }, vehicles["combine"].Hatches);
+        var with = new[] { "flatbed", "van", "ferndale", "combine" };
+        Assert.All(vehicles.Values.Where(v => !with.Contains(v.Nick)), v => Assert.Empty(v.Hatches));
+
+        string moped = File.ReadAllText(Path.Combine(folder, "jonnez.json"));
+        var error = Assert.Throws<FormatException>(() => VehicleDefinition.Parse(moped.Replace("\"rootName\"", "\"hatches\": [\"\"], \"rootName\"")));
+        Assert.Contains("hatches", error.Message);
+    }
+
+    [Fact]
     public void Every_vehicle_file_in_the_repository_can_be_read()
     {
         string folder = Path.Combine(AppContext.BaseDirectory, "data", "vehicles");

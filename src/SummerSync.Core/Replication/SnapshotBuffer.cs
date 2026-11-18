@@ -44,6 +44,7 @@ namespace SummerSync.Core.Replication
             MinDelay = 0.1;
             MaxDelay = 0.4;
             MaxExtrapolation = 0.25;
+            MaxExtrapolatedSpeed = 150.0;
             CorrectionTime = 0.1;
             SnapDistance = 5.0;
             MaxClockSlew = 0.05;
@@ -59,6 +60,12 @@ namespace SummerSync.Core.Replication
 
         /// <summary>Seconds a movement is continued along its last known velocity when no state arrives.</summary>
         public double MaxExtrapolation { get; set; }
+
+        /// <summary>
+        /// A last step faster than this many metres a second is not a movement to continue: the thing was put somewhere
+        /// else (the game moved it, a respawn). It is held at its newest state.
+        /// </summary>
+        public double MaxExtrapolatedSpeed { get; set; }
 
         /// <summary>Time constant, in seconds, over which a position error is blended away instead of jumped.</summary>
         public double CorrectionTime { get; set; }
@@ -587,6 +594,13 @@ namespace SummerSync.Core.Replication
 
             if (span > config.MaxExtrapolation)
             {
+                return states[last];
+            }
+
+            if (states[last].DistanceTo(states[last - 1]) > config.MaxExtrapolatedSpeed * span)
+            {
+                // A jump, not a speed: carried on, it would leave the thing as far again beyond where it was put.
+                source = past == 0.0 ? SnapshotSource.Interpolated : SnapshotSource.Held;
                 return states[last];
             }
 

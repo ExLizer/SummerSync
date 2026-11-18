@@ -23,8 +23,9 @@ namespace SummerSync.Unity.World
     ///   gets down to "log1" and makes a piece from it even when it is off.
     /// - the flatbed, "FLATBED/Bed/LogTrigger" (machine "Logic"): in "Check log" a "log(Clone)" or "firewood(Clone)" that
     ///   came into the box is destroyed and added to "Logs" (and "Firewood"); "Add scale" makes the pile's size, the
-    ///   price and the box's weight from them. With the box tipped ("Unload") "Wait" takes the pile down and "Pay"
-    ///   pays; that runs in every game by itself.
+    ///   price and the box's weight from them. With the box tipped and its hatch open near the customer ("Unload", which the
+    ///   hatch's machine "Unload" writes) "Wait" takes the pile down and "Pay" pays; "Wait" entered with an empty pile pays
+    ///   nothing. The game saves "Logs" and "Firewood".
     ///
     /// A piece of wood is taken by the game that moves it: a copy of one another machine moves has no speed for the
     /// carrier, and the flatbed here is made not to see it. The carrier is told as it is, by whoever changed it last; a
@@ -32,7 +33,9 @@ namespace SummerSync.Unity.World
     /// piece taken out is made in every game. Not through "Array" itself: in a game whose player is not looking at the
     /// carrier it made pieces out of nothing (2026-11-12). A piece made here that way and fallen into this flatbed
     /// within a few seconds goes without being counted: the game that took it out has it in its own flatbed, counted
-    /// there. The flatbed's pile is added up by the host from what each game took in.
+    /// there. The flatbed's pile is added up by the host from what each game took in. Unloading is each game's own, the
+    /// game's way, and spreads (<see cref="FlatbedUnload"/>): a game that starts unloading says so and the others unload
+    /// theirs too, so that no game, the host's above all, keeps and saves a pile the others emptied.
     ///
     /// Offline and in the loopback test nothing here touches the game.
     /// </summary>
@@ -40,6 +43,7 @@ namespace SummerSync.Unity.World
     {
         private const string CarrierKey = "wood/carrier/";
         private const string FlatbedKey = "wood/flatbed";
+        private const string UnloadKey = FlatbedUnload.Tally;
         private const string EventPrefix = "SUMMERSYNC WOOD ";
         private const double SearchInterval = 3.0;
 
@@ -63,6 +67,12 @@ namespace SummerSync.Unity.World
         private bool flatbedCatchUp;
         private double clock;
         private Transform items;
+
+        // The flatbed's unloading, the same in every game; and the machine whose unloading state has the mod's check (once a
+        // machine: the check calls whichever sync is current).
+        private FlatbedUnload unloading = new FlatbedUnload();
+        private static PlayMakerFSM unloadHooked;
+        private static WoodSync active;
 
         // Pieces made here because another game took them out of a carrier, by their instance number.
         private readonly Dictionary<int, Made> madeForOthers = new Dictionary<int, Made>();
@@ -106,6 +116,8 @@ namespace SummerSync.Unity.World
                 flatbed = null;
                 searched = false;
                 flatbedHeard = false;
+                unloading = new FlatbedUnload();
+                active = current != null ? this : (active == this ? null : active);
                 nextSearch = now + 1.0;
             }
 
@@ -173,7 +185,8 @@ namespace SummerSync.Unity.World
             }
         }
 
-        // The flatbed here does not take a piece of wood another machine moves: that machine's flatbed does.
+        // The flatbed here does not take a piece of wood another machine moves: that machine's flatbed does. And its
+        // unloading state, entered with an empty pile emptied a moment ago, is turned back before it pays nothing.
         private void Hook(Flatbed bed)
         {
             try
@@ -187,6 +200,54 @@ namespace SummerSync.Unity.World
             catch (Exception exception)
             {
                 log.Warning(LogCategory.Fsm, "Firewood: the flatbed's box is not as this build expects (" + exception.Message + "): a piece thrown in may count twice.");
+            }
+
+            if (unloadHooked == bed.Machine)
+            {
+                return;
+            }
+
+            try
+            {
+                if (!bed.Machine.FsmInject(Flatbed.UnloadState, OnUnloading, false, 0, false))
+                {
+                    throw new InvalidOperationException("its '" + Flatbed.UnloadState + "' could not take the mod's action");
+                }
+
+                unloadHooked = bed.Machine;
+            }
+            catch (Exception exception)
+            {
+                log.Warning(LogCategory.Fsm, "Firewood: the flatbed's unloading is not as this build expects (" + exception.Message + "): tipped again with an empty pile, it may pay nothing over the pay just made.");
+            }
+        }
+
+        // First in the game's unloading state, before it takes logs off and pays.
+        private static void OnUnloading()
+        {
+            WoodSync sync = active;
+            Flatbed bed = sync == null ? null : sync.flatbed;
+            if (sync == null || sync.current == null || bed == null || bed.Machine == null)
+            {
+                return;
+            }
+
+            int logs = Mathf.RoundToInt(bed.Logs.Value);
+            switch (sync.unloading.Entering(logs, sync.clock))
+            {
+                case FlatbedUnload.GoOnAndSay:
+                    // Said now: a small pile is unloaded and paid for before the frame is over.
+                    sync.current.Set(UnloadKey, new[] { 1, sync.LocalId() });
+                    sync.log.Info(LogCategory.Fsm, "Firewood: the flatbed unloads in this game (" + logs + "); told, for the others to unload theirs.");
+                    return;
+
+                case FlatbedUnload.TurnBack:
+                    // Sent by the machine itself while it enters the state: the rest of the state is not run (PlayMaker's
+                    // FsmState), and the customer's pay is not set to nothing.
+                    bed.Unload.Value = false;
+                    bed.Machine.Fsm.Event(FsmEvent.GetFsmEvent(Flatbed.BackEvent));
+                    sync.log.Info(LogCategory.Fsm, "Firewood: the flatbed was to unload an empty pile here, emptied a moment ago; turned back (the customer's pay stays as it is).");
+                    return;
             }
         }
 
@@ -237,6 +298,14 @@ namespace SummerSync.Unity.World
                 flatbedHeard = true;
                 flatbedValues = values;
                 flatbedCatchUp = current.CatchingUp;
+            }
+            else if (key == UnloadKey && values.Length >= 2)
+            {
+                unloading.Hear(values[0], current.CatchingUp, values[1] == LocalId(), clock);
+                if (!current.CatchingUp && values[1] != LocalId())
+                {
+                    log.Info(LogCategory.Fsm, "Firewood: player " + values[1] + "'s game " + (values[0] == 1 ? "unloads its flatbed." : "stopped unloading its flatbed halfway."));
+                }
             }
         }
 
@@ -425,9 +494,11 @@ namespace SummerSync.Unity.World
                 flatbed.CatchUp = flatbedCatchUp;
             }
 
-            bool resting = flatbed.Machine.ActiveStateName == Flatbed.RestState && !flatbed.Unload.Value;
             int logs = Mathf.RoundToInt(flatbed.Logs.Value);
             int firewood = Mathf.RoundToInt(flatbed.Firewood.Value);
+            bool waiting = flatbed.Machine.ActiveStateName == Flatbed.RestState;
+            Unloading(logs, waiting);
+            bool resting = waiting && !flatbed.Unload.Value;
             if (logs != flatbed.KnownLogs || firewood != flatbed.KnownFirewood)
             {
                 var before = new[] { flatbed.KnownLogs, flatbed.KnownFirewood };
@@ -498,6 +569,29 @@ namespace SummerSync.Unity.World
                 }
 
                 log.Info(LogCategory.Fsm, "Firewood: the flatbed is empty in the host's game; emptied here.");
+            }
+        }
+
+        // This game's unloading said to the others, and theirs done here: the game's own "Unload", written as the hatch's
+        // machine writes it, and the game takes the pile down and has the customer pay.
+        private void Unloading(int logs, bool waiting)
+        {
+            bool unload = flatbed.Unload.Value;
+            if (unloading.Observe(waiting, unload, logs, clock) == 0)
+            {
+                current.Set(UnloadKey, new[] { 0, LocalId() });
+                log.Info(LogCategory.Fsm, "Firewood: the flatbed stopped unloading halfway in this game (" + logs + " left); told.");
+            }
+
+            bool value;
+            if (unloading.Want(waiting, unload, logs, clock, out value))
+            {
+                flatbed.Unload.Value = value;
+                log.Info(
+                    LogCategory.Fsm,
+                    value
+                        ? "Firewood: the flatbed unloads here because another game's does (" + logs + ")."
+                        : "Firewood: the flatbed stops unloading here, as the other game's did (" + logs + " left).");
             }
         }
 
@@ -652,6 +746,8 @@ namespace SummerSync.Unity.World
             public const string RestState = "Wait log";
             public const string CheckState = "Check log";
             public const string ScaleState = "Add scale";
+            public const string UnloadState = "Wait";
+            public const string BackEvent = "BACK";
 
             public PlayMakerFSM Machine;
             public FsmFloat Logs;

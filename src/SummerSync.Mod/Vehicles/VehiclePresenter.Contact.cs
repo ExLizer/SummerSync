@@ -178,6 +178,7 @@ namespace SummerSync.Unity.Vehicles
                     copy.NoteTurnedBack(turned);
                 }
 
+                copy.NotePut("a copy with its own physics far off its owner's place");
                 copy.Root.position = position;
                 copy.Root.rotation = rotation;
                 body.velocity = ownerVelocity;

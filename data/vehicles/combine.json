@@ -2,6 +2,7 @@
   "format": 2,
   "nick": "combine",
   "rootName": "COMBINE(350-400psi)",
+  "rescues": ["::LOD::Move"],
   "driveTriggerPath": "LOD/PlayerTrigger/DriveTrigger",
   "driveMachineName": "PlayerTrigger",
   "interior": {
@@ -40,5 +41,6 @@
     ],
     "levers": ["LOD/Dashboard/Gear/Lever"],
     "seat": [0.01, 1.37, 0.97, 0.8]
-  }
+  },
+  "hatches": ["PIVOT/Door/Pivot/door/coll"]
 }

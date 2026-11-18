@@ -514,6 +514,14 @@ namespace SummerSync.Core.Vehicles
         public string[] CabinVents { get; private set; }
 
         /// <summary>
+        /// Doors of the vehicle that open and close by an animation and say whether they are open the way the buildings'
+        /// doors do (paths below the root, to the object whose state machine "Use" has the boolean "DoorOpen" and the states
+        /// "Open door" and "Close door"): the flatbed's hatch. Shared like its other doors, and never as a hinge. Empty for
+        /// most.
+        /// </summary>
+        public string[] Hatches { get; private set; }
+
+        /// <summary>
         /// The game's state machines that move the vehicle by themselves ("path::machine", the path below the root, empty
         /// for the root itself: the boat's floating and its bow), paused on a machine that shows the vehicle where another
         /// machine simulates it. Empty for most.
@@ -765,6 +773,7 @@ namespace SummerSync.Core.Vehicles
             {
                 throw new FormatException(what + " has doors to its space inside (\"cabinVents\") but no \"interior\".");
             }
+            definition.Hatches = Texts(file, "hatches", what);
             definition.FollowKinematic = Texts(file, "followKinematic", what);
             for (int i = 0; i < definition.FollowOff.Length; i++)
             {

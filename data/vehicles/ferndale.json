@@ -2,6 +2,7 @@
   "format": 2,
   "nick": "ferndale",
   "rootName": "FERNDALE(1630kg)",
+  "rescues": ["::LOD::Move"],
   "driveTriggerPath": "LOD/PlayerTrigger/DriveTrigger",
   "driveMachineName": "PlayerTrigger",
   "keyVariable": "PlayerKeyFerndale",
@@ -55,5 +56,6 @@
     ],
     "levers": [],
     "seat": [-0.37, 0.12, -0.11, 0.9]
-  }
+  },
+  "hatches": ["LOD/FuelFiller 1/Pivot/body_fuel_hatch/Trigger"]
 }

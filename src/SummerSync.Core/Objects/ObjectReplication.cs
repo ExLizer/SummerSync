@@ -196,6 +196,12 @@ namespace SummerSync.Core.Objects
 
         internal bool HasHandOff { get; set; }
 
+        /// <summary>Whether this machine has taken the object over and the state to start it from waits to be taken.</summary>
+        public bool HandOffWaiting
+        {
+            get { return HasHandOff; }
+        }
+
         internal BodyPose HandOffPose { get; set; }
 
         internal BodyMotion HandOffMotion { get; set; }

@@ -710,16 +710,18 @@ namespace SummerSync.Unity.World
             // The vehicles the build has a data file for, in the order of their names: the same on every machine.
             VehicleDefinition[] vehicles = VehiclePresenter.Catalog;
             var roots = new List<string>(vehicles.Length);
+            var hatches = new Dictionary<string, string[]>();
             for (int v = 0; v < vehicles.Length; v++)
             {
                 roots.Add(vehicles[v].RootName);
+                hatches[vehicles[v].RootName] = vehicles[v].Hatches;
             }
 
             roots.Sort(string.CompareOrdinal);
             HashSet<Transform> partObjects = PartObjects();
             for (int v = 0; v < roots.Count; v++)
             {
-                AddVehicleDoors(roots[v], candidates, partObjects);
+                AddVehicleDoors(roots[v], hatches[roots[v]], candidates, partObjects);
             }
 
             int partDoors = AddPartDoors(candidates, partObjects);
@@ -915,8 +917,21 @@ namespace SummerSync.Unity.World
                     }
 
                     FsmBool open = machine.FsmVariables.FindFsmBool(VehicleOpenVariable);
+                    string variable = VehicleOpenVariable;
                     string openState = FirstState(machine, VehicleOpenStates);
                     string closeState = FirstState(machine, VehicleCloseStates);
+
+                    // One that opens by turning a pivot and says so like a building's door (the fuel filler's hatch on
+                    // the tank's pipe): no hinge of its own.
+                    bool hatch = open == null;
+                    if (hatch)
+                    {
+                        open = machine.FsmVariables.FindFsmBool(OpenVariable);
+                        variable = OpenVariable;
+                        openState = HasState(machine, OpenState) ? OpenState : null;
+                        closeState = HasState(machine, CloseState) ? CloseState : null;
+                    }
+
                     if (open == null || openState == null || closeState == null)
                     {
                         continue;
@@ -924,10 +939,10 @@ namespace SummerSync.Unity.World
 
                     string below = PlainPath(machine.transform, part);
                     string name = (car == null ? "SATSUMA" : car.name) + "/" + part.name + ":" + below;
-                    var door = new Door(machine, open, name, VehicleOpenVariable, openState, closeState, ShortName(car == null ? "SATSUMA" : car.name) + " " + part.name + (below.Length == 0 ? string.Empty : " " + below));
+                    var door = new Door(machine, open, name, variable, openState, closeState, ShortName(car == null ? "SATSUMA" : car.name) + " " + part.name + (below.Length == 0 ? string.Empty : " " + below));
                     door.Vehicle = car;
                     door.Part = part;
-                    door.Hinge = car == null ? null : HingeAbove(machine.transform, car);
+                    door.Hinge = car == null || hatch ? null : HingeAbove(machine.transform, car);
                     candidates.Add(door);
                     added++;
                 }
@@ -953,13 +968,32 @@ namespace SummerSync.Unity.World
         // The doors of a vehicle that is in the scene. One that is not there yet has none, and the two machines
         // would then disagree about the list; the overlay says so. Doors on parts that come off are not the
         // vehicle's: they are listed by their part.
-        private void AddVehicleDoors(string rootName, List<Door> candidates, HashSet<Transform> partObjects)
+        private void AddVehicleDoors(string rootName, string[] hatches, List<Door> candidates, HashSet<Transform> partObjects)
         {
             Transform root = VehiclePresenter.FindRoot(rootName);
             if (root == null)
             {
                 log.Info(LogCategory.Fsm, "No vehicle '" + rootName + "' in the scene: it has no doors to share.");
                 return;
+            }
+
+            // Doors that open by an animation and say so like a building's (the flatbed's hatch, whose open state lets the
+            // box unload): no hinge of theirs. The hinge above the hatch is the box's own, which tips.
+            for (int h = 0; hatches != null && h < hatches.Length; h++)
+            {
+                Transform at = root.Find(hatches[h]);
+                PlayMakerFSM machine = at == null ? null : FindMachine(at, MachineName);
+                FsmBool open = machine == null ? null : machine.FsmVariables.FindFsmBool(OpenVariable);
+                if (open == null || !HasState(machine, OpenState) || !HasState(machine, CloseState))
+                {
+                    log.Warning(LogCategory.Fsm, "The hatch '" + rootName + "/" + hatches[h] + "' is not as its data file says (no '" + MachineName + "' with '" + OpenVariable + "', '" + OpenState + "' and '" + CloseState + "'): it is not shared.");
+                    continue;
+                }
+
+                string name = PathOf(machine.transform);
+                var hatch = new Door(machine, open, name, OpenVariable, OpenState, CloseState, ShortName(rootName) + " " + hatches[h]);
+                hatch.Vehicle = root;
+                candidates.Add(hatch);
             }
 
             PlayMakerFSM[] machines = root.GetComponentsInChildren<PlayMakerFSM>(true);

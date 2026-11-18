@@ -2,6 +2,7 @@
   "format": 2,
   "nick": "jonnez",
   "rootName": "JONNEZ ES(Clone)",
+  "rescues": ["::LOD::Move"],
   "driveTriggerPath": "LOD/PlayerTrigger/DriveTrigger",
   "driveMachineName": "PlayerTrigger",
   "lights": {

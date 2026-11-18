@@ -2,6 +2,7 @@
   "format": 2,
   "nick": "ruscko",
   "rootName": "RCO_RUSCKO12(270)",
+  "rescues": ["::LOD::Move"],
   "driveTriggerPath": "LOD/PlayerTrigger/DriveTrigger",
   "driveMachineName": "PlayerTrigger",
   "keyVariable": "PlayerKeyRuscko",

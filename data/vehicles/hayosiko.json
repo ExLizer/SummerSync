@@ -2,6 +2,7 @@
   "format": 2,
   "nick": "van",
   "rootName": "HAYOSIKO(1500kg, 250)",
+  "rescues": ["::LOD::Move"],
   "driveTriggerPath": "LOD/PlayerTrigger/DriveTrigger",
   "driveMachineName": "PlayerTrigger",
   "keyVariable": "PlayerKeyHayosiko",
@@ -54,5 +55,6 @@
     ],
     "levers": ["LOD/Dashboard/GearShifter/lever"],
     "seat": [-0.34, 0.51, 0.91, 0.9]
-  }
+  },
+  "hatches": ["LOD/FuelFiller/Pivot/body_fuel_hatch/Trigger"]
 }

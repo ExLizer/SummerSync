@@ -317,6 +317,7 @@ namespace SummerSync.Unity.Vehicles
 
             DriveAid();
             NoteFollowQuality(now);
+            NoteDrawn(now);
         }
 
         // The session's clock against the game's: both go at the same pace, so the difference is all but fixed. Read once a
@@ -1663,6 +1664,7 @@ namespace SummerSync.Unity.Vehicles
                 // its body (seen on 2026-10-13: every door a touch to one side after the rear door was used).
                 bool jumped = !atRest && vehicle.Placed;
                 vehicle.JoltedNow = jumped;
+                vehicle.NotePut(jumped ? "its owner's place jumped" : !vehicle.Placed ? "first placed" : "it came to rest");
                 vehicle.Smooth(false);
                 vehicle.Root.position = position;
                 vehicle.Root.rotation = rotation;
@@ -1679,6 +1681,7 @@ namespace SummerSync.Unity.Vehicles
             if (vehicle.Jolts(moved))
             {
                 // Put there by its transform, which carries the doors and the glass with it.
+                vehicle.NotePut("a step unlike the one before");
                 vehicle.Smooth(false);
                 vehicle.Root.position = position;
                 vehicle.Root.rotation = rotation;
@@ -2137,6 +2140,7 @@ namespace SummerSync.Unity.Vehicles
                 if (drawnOff > PlaceTolerance || solidOff > PlaceTolerance || turned > PlaceTurnTolerance)
                 {
                     Vector3 off = Quaternion.Inverse(rotation) * ((drawnOff >= solidOff ? drawn : solid) - position);
+                    NotePut("it stood off its place at rest");
                     Body.position = position;
                     Body.rotation = rotation;
                     Root.position = position;

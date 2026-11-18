@@ -74,19 +74,26 @@ namespace SummerSync.Unity.Objects
         private void PutBack(IList<ulong> keys)
         {
             int put = 0;
+            var names = new System.Text.StringBuilder();
             for (int k = 0; k < keys.Count; k++)
             {
                 Tracked item = FindTracked((ushort)keys[k]);
                 if (item != null && item.Shared.Role == BodyRole.Follow)
                 {
                     item.AtRest = false;
+                    item.PutBackByCheck = true;
+                    if (put < 5)
+                    {
+                        names.Append(put == 0 ? " (" : ", ").Append('\'').Append(item.Shared.Name).Append("' ").Append(item.Shared.Id);
+                    }
+
                     put++;
                 }
             }
 
             if (put > 0)
             {
-                log.Info(LogCategory.Authority, put + " object(s) rested elsewhere than in the host's game: put back where the host has them.");
+                log.Info(LogCategory.Authority, put + " object(s) rested elsewhere than in the host's game: put back where the host has them" + (put > 5 ? names.Append(", …)") : names.Append(')')) + ".");
             }
         }
 

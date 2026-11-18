@@ -336,6 +336,20 @@ public class PoseBufferTests
     }
 
     [Fact]
+    public void A_jump_in_the_last_state_before_the_states_stop_is_not_carried_on()
+    {
+        // Put somewhere else, and nothing more is heard: the jump is not a speed to keep going with.
+        static PlayerPose Teleporting(double t) => new(t < 2.99 ? 0 : 500, 0, 0, 0, 0, 1.4f);
+        var link = new PoseLink(Teleporting);
+        link.Run(3.02);
+        link.Sending = false;
+
+        link.Run(2.0);
+
+        Assert.Equal(500f, link.Shown.X);
+    }
+
+    [Fact]
     public void A_player_who_really_teleports_is_not_slowed_down()
     {
         // Standing still, then somewhere else: going to bed, respawning.
