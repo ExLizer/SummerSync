@@ -105,6 +105,14 @@ namespace SummerSync.Core.Vehicles
         /// <summary>The object the game turns or moves by the knob's float when the player works it, or null.</summary>
         public KnobMove Moves { get; internal set; }
 
+        /// <summary>
+        /// For a knob that only the simulating machine has, read from a machine of the game that the others pause (the
+        /// septic tank's pump, which works only where the truck is simulated): the object, below the vehicle's root, that the
+        /// game switches on in its second position (the hose's suction sound). The others switch theirs on and off as the
+        /// simulating machine says, and never take the machine anywhere. Null for the rest.
+        /// </summary>
+        public string Shows { get; internal set; }
+
         /// <summary>For a knob read from its machine's state: the position at which the machine is in that state, or -1.</summary>
         public int PositionDuring(string state)
         {
@@ -546,7 +554,8 @@ namespace SummerSync.Core.Vehicles
         /// <summary>
         /// Path, below the root, of the object with the headlight switch: a state machine with an integer
         /// "Selection" (0 off, 1 dipped, 2 full) and the states "Off", "Shorts" and, on most, "Longs". Null if
-        /// the lights are not shared.
+        /// the switch is not shared this way: not at all, or as one of the <see cref="Knobs"/> (the moped's and the
+        /// combine's say "LightsOn" and leave their "Selection" alone).
         /// </summary>
         public string LightSwitchPath { get; private set; }
 
@@ -727,10 +736,19 @@ namespace SummerSync.Core.Vehicles
             if (file.TryGetValue("lights", out lights) && lights != null)
             {
                 Dictionary<string, object> entry = JsonReader.Object(lights, what + "'s \"lights\"");
-                definition.LightSwitchPath = JsonReader.String(entry, "switchPath", what + "'s lights");
-                definition.LightSwitchMachine = JsonReader.String(entry, "switchMachine", what + "'s lights");
+                definition.LightSwitchPath = Optional(entry, "switchPath", what + "'s lights");
+                definition.LightSwitchMachine = Optional(entry, "switchMachine", what + "'s lights");
                 definition.LightSwitchUnder = Optional(entry, "switchUnder", what + "'s lights");
                 definition.PowerPath = Optional(entry, "powerPath", what + "'s lights");
+                if ((definition.LightSwitchPath == null) != (definition.LightSwitchMachine == null))
+                {
+                    throw new FormatException(what + "'s lights name a switch without its state machine, or the other way round.");
+                }
+
+                if (definition.LightSwitchPath == null && (definition.LightSwitchUnder != null || definition.PowerPath == null))
+                {
+                    throw new FormatException(what + "'s lights need a switch or the object their electricity switches on.");
+                }
             }
 
             object engine;
@@ -1228,6 +1246,12 @@ namespace SummerSync.Core.Vehicles
             if ((knob.Copies.Length > 0 || knob.Moves != null) && !ranged)
             {
                 throw new FormatException(what + " copies or moves by its float: it needs a \"step\".");
+            }
+
+            knob.Shows = Optional(entry, "shows", what);
+            if (knob.Shows != null && (!knob.BySimulator || knob.During == null || knob.Highest != 1 || knob.Shows.Length == 0))
+            {
+                throw new FormatException(what + " shows an object: it needs to be told by the simulator, read from its machine's states (\"during\") and have two positions.");
             }
 
             for (int i = 0; i < others.Count; i++)

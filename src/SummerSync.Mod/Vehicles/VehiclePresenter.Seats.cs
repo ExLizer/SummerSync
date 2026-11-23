@@ -31,6 +31,13 @@ namespace SummerSync.Unity.Vehicles
         private const string SeatButton = "DrivingMode";
         private const string SeatOffer = "ENTER PASSENGER MODE";
         private const string SeatObjectName = "SummerSync passenger seat";
+        private const string SeatLeanName = "SummerSync passenger lean";
+
+        // The game's buttons and clips for leaning in a vehicle: the driver's "CameraPivot :: Strafe" (level file, 2026-11-23).
+        private const string LeanLeftButton = "ReachLeft";
+        private const string LeanRightButton = "ReachRight";
+        private const string LeanPivotName = "CameraPivot";
+        private static readonly string[] LeanClipsByWay = { "car_strafe_left1", "car_strafe_left2", "car_strafe_right1", "car_strafe_right2" };
 
         // Getting out is refused faster than this along any axis, as the game refuses it to a driver.
         private const float SeatLeaveSpeed = 0.15f;
@@ -44,6 +51,13 @@ namespace SummerSync.Unity.Vehicles
         private bool localDead;
         private int seatIndex = -1;
         private Transform seatObject;
+        private Transform seatLean;
+        private Animation leanAnimation;
+        private int leaning;
+        private float leanBackUntil;
+
+        // A test aid: leaning as if that button were held (-1 left, 1 right, 0 none).
+        private int leanAid;
         private double seatedAt;
         private bool seatBelted;
         private bool crouchWasInCar;
@@ -363,11 +377,24 @@ namespace SummerSync.Unity.Vehicles
             body.useGravity = false;
             body.interpolation = RigidbodyInterpolation.None;
 
+            // Below it, what leans as the driver's camera pivot does, as far below the seat as that pivot is (the van's is 0.56
+            // m below where the player sits, and leans the driver's eyes 0.48 m aside: measured on 2026-11-23): the player
+            // hangs from that.
+            seatLean = new GameObject(SeatLeanName).transform;
+            seatLean.parent = seatObject;
+            seatLean.localRotation = Quaternion.identity;
+            Transform driversPivot;
+            leanAnimation = LeanClips(vehicle, seatLean.gameObject, out driversPivot);
+            float below = driversPivot == null ? 0f : vehicle.Root.InverseTransformPoint(driversPivot.position).y - place.Player[1];
+            seatLean.localPosition = new Vector3(0f, below, 0f);
+            leaning = 0;
+            leanBackUntil = 0f;
+
             playerStop.Value = true;
             crouchWasInCar = crouchInCar.Value;
             crouchInCar.Value = true;
-            player.parent = seatObject;
-            player.localPosition = Vector3.zero;
+            player.parent = seatLean;
+            player.localPosition = new Vector3(0f, -below, 0f);
             Vector3 turned = player.localEulerAngles;
             player.localEulerAngles = new Vector3(0f, turned.y, 0f);
             seatedIn = vehicle;
@@ -377,7 +404,91 @@ namespace SummerSync.Unity.Vehicles
             log.Info(
                 LogCategory.Passenger,
                 "The local player sits in the " + place.Name + " seat of '" + vehicle.Root.name + "' (vehicle " + vehicle.Shared.Id + "), as a passenger: "
-                + why + ". Its belt: " + Belt(place) + ".");
+                + why + ". Its belt: " + Belt(place) + ". Leaning: " + (leanAnimation == null ? "not found (no driver's camera pivot with the game's clips)" : "the driver's clips") + ".");
+        }
+
+        // The driver's camera pivot of the vehicle leans the driver with four clips of its own (its "Strafe" machine, the
+        // level file and the clips' curves: 25 degrees about the vehicle's length in a sixth of a second, and back): a copy
+        // of its animation, with those clips, on the object the passenger hangs from. Null if the vehicle has none.
+        private Animation LeanClips(Tracked vehicle, GameObject on, out Transform pivot)
+        {
+            pivot = null;
+            Animation[] animations = vehicle.Root.GetComponentsInChildren<Animation>(true);
+            for (int i = 0; i < animations.Length; i++)
+            {
+                Animation source = animations[i];
+                if (source.transform.name != LeanPivotName || source.GetClip(LeanClipsByWay[0]) == null)
+                {
+                    continue;
+                }
+
+                Animation copy = on.AddComponent<Animation>();
+                copy.playAutomatically = false;
+                for (int c = 0; c < LeanClipsByWay.Length; c++)
+                {
+                    AnimationClip clip = source.GetClip(LeanClipsByWay[c]);
+                    if (clip == null)
+                    {
+                        UnityEngine.Object.Destroy(copy);
+                        return null;
+                    }
+
+                    copy.AddClip(clip, LeanClipsByWay[c]);
+                }
+
+                pivot = source.transform;
+                return copy;
+            }
+
+            return null;
+        }
+
+        // While seated, every frame: the passenger leans as the game leans a driver, to the left or the right while that
+        // button is held, and back when it is let go. Whichever was pressed first wins until it is back upright.
+        private void Lean()
+        {
+            if (leanAnimation == null)
+            {
+                return;
+            }
+
+            if (leaning != 0)
+            {
+                if (!ButtonHeld(leaning < 0 ? LeanLeftButton : LeanRightButton) && leanAid != leaning)
+                {
+                    string back = LeanClipsByWay[leaning < 0 ? 1 : 3];
+                    leanAnimation.Play(back, PlayMode.StopAll);
+                    leanBackUntil = Time.time + leanAnimation[back].length;
+                    leaning = 0;
+                }
+
+                return;
+            }
+
+            if (Time.time < leanBackUntil)
+            {
+                return;
+            }
+
+            int way = ButtonHeld(LeanLeftButton) || leanAid < 0 ? -1 : ButtonHeld(LeanRightButton) || leanAid > 0 ? 1 : 0;
+            if (way != 0)
+            {
+                leaning = way;
+                leanAnimation.Play(LeanClipsByWay[way < 0 ? 0 : 2], PlayMode.StopAll);
+            }
+        }
+
+        private static bool ButtonHeld(string button)
+        {
+            try
+            {
+                return cInput.GetKey(button);
+            }
+            catch (Exception)
+            {
+                // cInput not set up yet (the very first frames).
+                return false;
+            }
         }
 
         // While seated: in place, still seated as the game keeps a driver, and out at the button.
@@ -386,13 +497,13 @@ namespace SummerSync.Unity.Vehicles
             Tracked vehicle = seatedIn;
 
             // Unity's null check is also true for a destroyed object.
-            if (vehicle.Body == null || !tracked.Contains(vehicle) || seatObject == null)
+            if (vehicle.Body == null || !tracked.Contains(vehicle) || seatObject == null || seatLean == null)
             {
                 LeaveSeat(false, "the vehicle is gone");
                 return;
             }
 
-            if (player.parent != seatObject)
+            if (player.parent != seatLean)
             {
                 LeaveSeat(false, "the game hung the player from '" + (player.parent == null ? "nothing" : player.parent.name) + "'");
                 return;
@@ -424,6 +535,7 @@ namespace SummerSync.Unity.Vehicles
                 carriedVelocity.Value = vehicle.VelocityAt(player.position);
             }
 
+            Lean();
             if (!ButtonDown())
             {
                 return;
@@ -476,7 +588,7 @@ namespace SummerSync.Unity.Vehicles
             seatBelted = false;
 
             // Unity's null check is also true for a destroyed object.
-            if (player != null && seatObject != null && player.parent == seatObject)
+            if (player != null && seatLean != null && player.parent == seatLean)
             {
                 player.parent = null;
                 Vector3 turned = player.eulerAngles;
@@ -504,6 +616,10 @@ namespace SummerSync.Unity.Vehicles
             }
 
             seatObject = null;
+            seatLean = null;
+            leanAnimation = null;
+            leaning = 0;
+            leanAid = 0;
             log.Info(
                 LogCategory.Passenger,
                 "The local player no longer sits in the " + place.Name + " seat of '" + (vehicle.Body == null ? "a vehicle" : vehicle.Root.name) + "': " + why
@@ -531,6 +647,19 @@ namespace SummerSync.Unity.Vehicles
 
                 LeaveSeat(true, "test aid");
                 return "You got up.";
+            }
+
+            if (wanted.StartsWith("lean", StringComparison.Ordinal))
+            {
+                if (seatedIn == null)
+                {
+                    return "Sit down first.";
+                }
+
+                string way = wanted.Substring(4).Trim();
+                leanAid = way == "left" ? -1 : way == "right" ? 1 : 0;
+                log.Info(LogCategory.Passenger, "Test aid: the local passenger leans " + (leanAid < 0 ? "left" : leanAid > 0 ? "right" : "back upright") + ".");
+                return leanAnimation == null ? "This vehicle has no driver's camera pivot to lean like." : leanAid == 0 ? "Upright." : "Leaning " + way + ".";
             }
 
             if (wanted == "belt")

@@ -83,10 +83,11 @@ namespace SummerSync.Unity.Vehicles
                     continue;
                 }
 
-                // The local player rides it: they are carried by where it is put, and their body inside it would push it.
-                // A copy whose colliders are on bodies held kinematic (the boat) has nothing to give way with.
+                // The local player rides it, standing or in a passenger seat: they are carried by where it is put, as its owner
+                // moves it, and their body inside it would push it. A copy whose colliders are on bodies held kinematic (the
+                // boat) has nothing to give way with.
                 bool near = false;
-                if (simulatesAny && copy.Placed && !copy.Ridden && !copy.HasHeldBodies && copy.Shared.Role == BodyRole.Follow)
+                if (simulatesAny && copy.Placed && !copy.Ridden && copy != seatedIn && !copy.HasHeldBodies && copy.Shared.Role == BodyRole.Follow)
                 {
                     OrientedBox other = copy.Box(0f);
                     for (int j = 0; j < tracked.Count && !near; j++)
@@ -176,6 +177,10 @@ namespace SummerSync.Unity.Vehicles
                 if (turned > FarTurn)
                 {
                     copy.NoteTurnedBack(turned);
+                }
+                else
+                {
+                    copy.NoteFarOff(body.position, position);
                 }
 
                 copy.NotePut("a copy with its own physics far off its owner's place");
@@ -470,6 +475,25 @@ namespace SummerSync.Unity.Vehicles
                         "Vehicles: '" + Root.name + "', a copy with its own physics, was " + degrees.ToString("0", CultureInfo.InvariantCulture)
                             + " degrees from how its owner has it (it fell over or rolled here by itself): put as its owner has it.");
                 }
+            }
+
+            /// <summary>
+            /// A copy with its own physics far off where its owner has it is put there: the log has the first time in each
+            /// contact, with how far below or above it was (players saw vehicles sink under the map for half a second).
+            /// </summary>
+            public void NoteFarOff(Vector3 at, Vector3 owners)
+            {
+                if (ContactPuts != 1)
+                {
+                    return;
+                }
+
+                float up = at.y - owners.y;
+                log.Info(
+                    LogCategory.Vehicle,
+                    "Vehicles: '" + Root.name + "', a copy with its own physics, was " + (at - owners).magnitude.ToString("0.0", CultureInfo.InvariantCulture)
+                        + " m from where its owner has it (" + Mathf.Abs(up).ToString("0.0", CultureInfo.InvariantCulture) + " m " + (up < 0f ? "below" : "above")
+                        + "): put there.");
             }
 
             /// <summary>Forgets the contact when this machine stops following the vehicle.</summary>

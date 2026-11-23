@@ -70,6 +70,9 @@ namespace SummerSync.Unity.Objects
         // What a fire destroys whole when it burns it (dump of 2026-10-14, "WoodTrigger"): burnt, not built in.
         private const string Firewood = "firewood(Clone)";
 
+        // A flyer of Teimo's job, as the pile makes it and the mailboxes look for it in the hand ("HandChild" of their "WaitAd").
+        private const string Flyer = "teimo advert(Clone)";
+
         // Something made for another player is theirs if it is found within this many seconds.
         private const double BornSeconds = 20.0;
 
@@ -179,6 +182,17 @@ namespace SummerSync.Unity.Objects
         private int freezes;
         private int jumps;
 
+        // What the local hand took last, when and where, and who simulated it then: a thing that leaves the hand within
+        // HandLostSeconds is named in the log ("Hand:"), with how far it is from where it was taken (a measurement: a host
+        // whose things went back where they first were the moment he picked them up, 2026-11-23).
+        private const double HandLostSeconds = 3.0;
+        private const int HandLostLogged = 20;
+        private Tracked handTook;
+        private double handTookAt;
+        private Vector3 handTookFrom;
+        private string handTookWhose;
+        private int handLost;
+
         // The vehicles' count of hand-overs as of the last frame: a new one thaws what rides it at once.
         private int handOversSeen;
         private GUIStyle labelStyle;
@@ -248,6 +262,8 @@ namespace SummerSync.Unity.Objects
                 handAt = null;
                 handSearched = false;
                 lastInHand = null;
+                handTook = null;
+                handLost = 0;
             }
 
             if (current == null)
@@ -286,7 +302,9 @@ namespace SummerSync.Unity.Objects
 
             FrameMeter.Mark("objects: TakeFromSave and the near");
             ThrowAway();
-            current.SetHeld(InHand());
+            SharedBody inHand = InHand();
+            WatchHand(inHand);
+            current.SetHeld(inHand);
 
             // Unity's null check is also true for a destroyed object.
             vehicles.SetInHand(hand == null ? null : hand.connectedBody);
@@ -696,6 +714,7 @@ namespace SummerSync.Unity.Objects
 
             var item = new Tracked(body, current.AddLocal(name, PoseOf(body.transform), bornWith, KeyOf(go)));
             item.OfJob = ofJob;
+            item.OfVehicle = ofJob && vehicles.RootOf(body.transform) != null;
             item.KeepWhenGone = IsCarPart(name) || World.MountSync.IsMountable(name, log);
             tracked.Add(item);
             byBody[body.GetInstanceID()] = item;
@@ -884,8 +903,9 @@ namespace SummerSync.Unity.Objects
             if (item.Body == null)
             {
                 // The game eats a thing up or throws it away by taking its body, collider and looks off and moving
-                // it out of sight, loose. Destroyed whole, or built into something, it is not that.
-                if ((item.Transform != null && !IsBuiltIn(item)) || (item.Transform == null && item.Shared.Name == Firewood))
+                // it out of sight, loose. Destroyed whole, or built into something, it is not that; but for firewood burnt
+                // and a flyer put in a mailbox (the box's "Open" destroys it): used up, in every game.
+                if ((item.Transform != null && !IsBuiltIn(item)) || (item.Transform == null && (item.Shared.Name == Firewood || item.Shared.Name == Flyer)))
                 {
                     current.Consume(item.Shared);
                 }
@@ -1010,6 +1030,44 @@ namespace SummerSync.Unity.Objects
                     Restore(item);
                     break;
             }
+        }
+
+        // A measurement of the local hand: what it takes, and what leaves it soon after, how far from where it was taken.
+        private void WatchHand(SharedBody inHand)
+        {
+            Tracked taken = inHand == null ? null : lastInHand;
+            if (taken == handTook)
+            {
+                return;
+            }
+
+            Tracked was = handTook;
+
+            // Unity's null check is also true for a destroyed object.
+            if (was != null && was.Transform != null && frameNow - handTookAt < HandLostSeconds && handLost < HandLostLogged)
+            {
+                handLost++;
+                SharedBody shared = was.Shared;
+                Vector3 at = was.Transform.position;
+                log.Info(
+                    LogCategory.Authority,
+                    "Hand: '" + shared.Name + "' (object " + shared.Id + ") left the local hand " + Format((float)(frameNow - handTookAt)) + " s after it was taken, "
+                    + Format((at - handTookFrom).magnitude) + " m from where it was taken and " + (player == null ? "?" : Format((at - player.position).magnitude)) + " m from the player; "
+                    + "when taken it was " + handTookWhose + ", now " + Whose(shared) + (handLost == HandLostLogged ? " (no more of these lines this session)." : "."));
+            }
+
+            handTook = taken;
+            if (taken != null && taken.Transform != null)
+            {
+                handTookAt = frameNow;
+                handTookFrom = taken.Transform.position;
+                handTookWhose = Whose(taken.Shared);
+            }
+        }
+
+        private static string Whose(SharedBody shared)
+        {
+            return !shared.HasId ? "not shared yet" : shared.Role == BodyRole.Simulate ? "simulated here" : "player " + shared.Owner + "'s" + (shared.Held ? ", in hand there" : string.Empty);
         }
 
         // Whether the thing is farther than that from the local player (never, without one).
@@ -1346,7 +1404,10 @@ namespace SummerSync.Unity.Objects
             // Kinematic here, it would win against anything this machine simulates: a vehicle must not find it
             // in its way, wherever its owner's machine has it. Looked at on every frame, at rest too: it is the
             // vehicle that comes to it.
-            bool ghost = vehicles.SimulatesAny && vehicles.TouchesSimulated(item.Transform.position);
+            // A job's thing that hangs from a vehicle by joints (the septic truck's hose end) is part of it: within its reach
+            // always, and the wells' triggers have to see it in the game that simulates the truck, where its pump runs (with no
+            // collisions, the end lay in a well in that game and the well never knew; 2026-11-23).
+            bool ghost = !item.OfVehicle && vehicles.SimulatesAny && vehicles.TouchesSimulated(item.Transform.position);
             if (ghost != item.Ghost)
             {
                 item.Ghost = ghost;
@@ -1865,6 +1926,9 @@ namespace SummerSync.Unity.Objects
 
             /// <summary>Held where it lies, kinematic, because it lies far from the local player (FreezeFar).</summary>
             public bool FrozenFar { get; set; }
+
+            /// <summary>A job's thing that hangs from a vehicle by joints (the septic truck's hose end): never without collisions.</summary>
+            public bool OfVehicle { get; set; }
 
             /// <summary>To be put back where the host has it at rest, because the checksums found it elsewhere here.</summary>
             public bool PutBackByCheck { get; set; }

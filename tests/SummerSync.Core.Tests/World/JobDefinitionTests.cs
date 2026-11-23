@@ -274,5 +274,11 @@ public class JobDefinitionTests
         Assert.Contains("JOBS/HayBales", loose);
         Assert.Contains("JOBS/HouseDrunk/Moving/Stuff/DestroyThese", loose);
         Assert.Contains("JOBS/HouseShit5/WasteWell_2000litre", loose);
+
+        // Teimo's pile of flyers before anyone carries it off, and the septic truck's hose end (its last link, below the
+        // nineteenth): a player carries both.
+        Assert.Contains("STORE/AdvertSpawn", loose);
+        string hose = Assert.Single(loose, path => path.StartsWith("GIFU(750/450psi)/HOSE/", StringComparison.Ordinal));
+        Assert.Equal(19, hose.Split('/').Count(part => part == "Hose(xxxxx)"));
     }
 }

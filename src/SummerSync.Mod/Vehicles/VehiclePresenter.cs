@@ -161,10 +161,7 @@ namespace SummerSync.Unity.Vehicles
         private double nextThrowLog;
         private double frameNow;
         private float frameTime;
-        private double gameClockOffset;
-        private bool gameClockKnown;
-        private const double GameClockJump = 0.05;
-        private const double GameClockBlend = 0.02;
+        private readonly StepClock clock = new StepClock();
         private bool frameKnown;
 
         public VehiclePresenter(Logger log, NetworkManager manager)
@@ -272,7 +269,7 @@ namespace SummerSync.Unity.Vehicles
 
                 // At the wheel the game hangs the player from the driver's head, inside the vehicle. A passenger hangs from
                 // the mod's seat.
-                if (player.parent != null && player.parent != seatObject && player.IsChildOf(vehicle.Root))
+                if (player.parent != null && player.parent != seatLean && player.IsChildOf(vehicle.Root))
                 {
                     driven = vehicle;
                 }
@@ -320,28 +317,18 @@ namespace SummerSync.Unity.Vehicles
             NoteDrawn(now);
         }
 
-        // The session's clock against the game's: both go at the same pace, so the difference is all but fixed. Read once a
-        // frame it jitters by the few milliseconds between reading one and the other (2 ms either way, measured on
-        // 2026-10-16), which at 20 ms a physics step is a tenth of a vehicle's speed: so it is smoothed, and a jump of
-        // more than a few frames (a hitch the game's clock did not keep up with) is taken at once.
+        // The session's clock against the game's (StepClock): read once a frame, with whether the game counted the frame as
+        // its limit for one (0.05 s in this game) although it took longer, which leaves the game's time behind.
         private void TrackGameClock(double now)
         {
-            double offset = now - Time.time;
-            if (!gameClockKnown || Math.Abs(offset - gameClockOffset) > GameClockJump)
-            {
-                gameClockOffset = offset;
-                gameClockKnown = true;
-                return;
-            }
-
-            gameClockOffset += (offset - gameClockOffset) * GameClockBlend;
+            float limit = Time.maximumDeltaTime;
+            clock.Frame(now, Time.time, limit > 0f && Time.deltaTime >= limit * 0.999f);
         }
 
-        // The session's clock at the game's last physics step: when the vehicles this machine runs were where they are, and
-        // the moment to place the ones it follows for.
+        // The session's clock at the game's last physics step: when the vehicles this machine runs were where they are.
         private double StepTime()
         {
-            return gameClockOffset + Time.fixedTime;
+            return clock.At(Time.fixedTime);
         }
 
         /// <summary>
@@ -352,10 +339,12 @@ namespace SummerSync.Unity.Vehicles
         {
             if (!frameKnown || current == null)
             {
+                clock.ResetFollow();
                 return;
             }
 
-            current.Sample(StepTime());
+            // Shown at a time of their own that never jumps ahead of a hitch of this game: it catches up instead.
+            current.Sample(clock.Follow(Time.fixedTime, Time.fixedDeltaTime));
             WatchStep();
             for (int i = 0; i < tracked.Count; i++)
             {
@@ -506,6 +495,22 @@ namespace SummerSync.Unity.Vehicles
         {
             touchedRoot = root;
             touchedUntil = now + TouchSeconds;
+        }
+
+        /// <summary>
+        /// The local player shoves a part of the vehicle with that root object that swings on a hinge (a door they open or
+        /// shut): for that long its joints hold as hard as the game made them, also where another machine runs the vehicle.
+        /// </summary>
+        public void LetPush(Transform root, Rigidbody part, float seconds)
+        {
+            for (int i = 0; part != null && i < tracked.Count; i++)
+            {
+                if (tracked[i].Root == root)
+                {
+                    tracked[i].LetPush(part, Time.time + seconds);
+                    return;
+                }
+            }
         }
 
         /// <summary>Whether someone on another machine drives the vehicle with that root object, or holds it some other way.</summary>
@@ -1813,6 +1818,9 @@ namespace SummerSync.Unity.Vehicles
             private readonly List<World.PausedMachine> followPaused = new List<World.PausedMachine>();
             private readonly List<Rigidbody> followHeld = new List<Rigidbody>();
             private readonly List<Joint> held = new List<Joint>();
+            private Rigidbody pushed;
+            private float pushedUntil;
+            private bool pushSaid;
             private readonly List<float> heldForce = new List<float>();
             private readonly List<float> heldTorque = new List<float>();
             private Cockpit cockpit;
@@ -2702,12 +2710,36 @@ namespace SummerSync.Unity.Vehicles
                     PutAstrayPartsBack();
                 }
 
+                bool pushing = pushed != null && Time.time < pushedUntil;
                 for (int i = 0; i < partJoints.Count; i++)
                 {
                     Joint joint = partJoints[i];
 
                     // Unity's null check is also true for a destroyed object.
-                    if (joint == null || (joint.breakForce >= float.MaxValue && joint.breakTorque >= float.MaxValue))
+                    if (joint == null)
+                    {
+                        continue;
+                    }
+
+                    if (pushing && joint.gameObject == pushed.gameObject)
+                    {
+                        // The local player shoves this part: as hard as the game made it hold, no harder.
+                        int at = held.IndexOf(joint);
+                        if (at >= 0)
+                        {
+                            joint.breakForce = heldForce[at];
+                            joint.breakTorque = heldTorque[at];
+                            if (!pushSaid)
+                            {
+                                pushSaid = true;
+                                log.Info(LogCategory.Vehicle, "'" + Root.name + "': the local player shoves '" + pushed.name + "', which another machine's vehicle carries: its joints hold as the game made them (the first time it is written).");
+                            }
+                        }
+
+                        continue;
+                    }
+
+                    if (joint.breakForce >= float.MaxValue && joint.breakTorque >= float.MaxValue)
                     {
                         continue;
                     }
@@ -2722,6 +2754,13 @@ namespace SummerSync.Unity.Vehicles
                     joint.breakForce = float.MaxValue;
                     joint.breakTorque = float.MaxValue;
                 }
+            }
+
+            /// <summary>The local player shoves that part of the vehicle until then (the game's clock): its joints give as the game's.</summary>
+            public void LetPush(Rigidbody part, float until)
+            {
+                pushed = part;
+                pushedUntil = until;
             }
 
             // Back to how hard they held: this machine runs the vehicle's physics again.

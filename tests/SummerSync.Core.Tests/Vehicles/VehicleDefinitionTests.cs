@@ -140,7 +140,7 @@ public class VehicleDefinitionTests
     [Theory]
     [InlineData("\"format\": 2", "\"format\": 1", "format 1 cannot be read")]
     [InlineData("\"nick\": \"van\"", "\"nick\": \"The Van\"", "a nick in lower case without spaces")]
-    [InlineData("\"switchMachine\": \"Use\", ", "", "needs a text \"switchMachine\"")]
+    [InlineData("\"switchMachine\": \"Use\", ", "", "a switch without its state machine")]
     [InlineData("\"keyVariable\": \"PlayerKeyHayosiko\"", "\"keyVariable\": 7", "\"keyVariable\" that is not a text")]
     [InlineData("\"rootName\": \"HAYOSIKO(1500kg, 250)\",", "", "needs a text \"rootName\"")]
     [InlineData("[0.62, 0.62, 1.95]", "[0.62, 0.62]", "\"halfSize\" as an array of 3 numbers")]
@@ -724,6 +724,38 @@ public class VehicleDefinitionTests
     }
 
     [Fact]
+    public void Every_light_switch_is_a_knob_whoever_turns_it_and_the_electricity_stays_the_simulators()
+    {
+        string folder = Path.Combine(AppContext.BaseDirectory, "data", "vehicles");
+        var vehicles = Directory.GetFiles(folder, "*.json").Select(f => VehicleDefinition.Parse(File.ReadAllText(f))).ToDictionary(v => v.Nick);
+
+        // A passenger who reaches the switch turns it for everyone, as the wipers (2026-11-23); none is told only by the
+        // machine that simulates the vehicle any more.
+        foreach (string nick in new[] { "van", "ruscko", "ferndale", "gifu", "kekmet", "satsuma", "jonnez", "combine" })
+        {
+            VehicleDefinition vehicle = vehicles[nick];
+            VehicleKnob lights = Assert.Single(vehicle.Knobs, k => k.Name == "lights");
+            Assert.False(lights.BySimulator, nick);
+            Assert.Null(vehicle.LightSwitchPath);
+        }
+
+        // The moped and the combine say whether their lights are on in "LightsOn" and never write their "Selection"
+        // (2026-11-23, the level file: the moped's light was never told on the host's word).
+        Assert.Equal("LightsOn", vehicles["jonnez"].Knobs.Single(k => k.Name == "lights").Variable);
+        Assert.Equal(new[] { "Off", "Shorts" }, vehicles["jonnez"].Knobs.Single(k => k.Name == "lights").States);
+        Assert.Equal(new[] { "Off", "Shorts", "Longs" }, vehicles["van"].Knobs.Single(k => k.Name == "lights").States);
+        Assert.Equal("dashboard meters(Clone)", vehicles["satsuma"].Knobs.Single(k => k.Name == "lights").Under);
+
+        // What the electricity switches on is still told by the machine that has the engine.
+        Assert.Equal("LOD/Suspension/Steering/SteeringPivot/Headlight/Electricity/PowerON", vehicles["jonnez"].PowerPath);
+        Assert.Equal("LOD/Electricity/PowerON", vehicles["van"].PowerPath);
+
+        // A lights section names a switch with its machine, or at least what the electricity switches on.
+        var noMachine = Assert.Throws<FormatException>(() => VehicleDefinition.Parse(Van.Replace("\"switchMachine\": \"Use\", ", string.Empty)));
+        Assert.Contains("without its state machine", noMachine.Message);
+    }
+
+    [Fact]
     public void The_boat_is_a_vehicle_whose_floating_is_paused_where_another_machine_simulates_it()
     {
         string file = Path.Combine(AppContext.BaseDirectory, "data", "vehicles", "boat.json");
@@ -864,6 +896,37 @@ public class VehicleDefinitionTests
         Assert.False(vehicles["flatbed"].CanBeDriven);
         Assert.Equal("FLATBED", vehicles["flatbed"].RootName);
         Assert.All(vehicles.Values.Where(v => v.Nick != "kekmet"), v => Assert.Empty(v.Hitches));
+    }
+
+    [Fact]
+    public void The_septic_truck_shares_its_pump_valve_hose_and_tank_and_pumps_only_where_it_is_simulated()
+    {
+        string folder = Path.Combine(AppContext.BaseDirectory, "data", "vehicles");
+        VehicleDefinition gifu = VehicleDefinition.Parse(File.ReadAllText(Path.Combine(folder, "gifu.json")));
+
+        // The switch and the valve are where the last one to touch them left them; the hose is out or in by its machine's state.
+        Assert.False(gifu.Knobs.Single(k => k.Name == "hydraulic pump").BySimulator);
+        Assert.Equal(new[] { "Close", "Open" }, gifu.Knobs.Single(k => k.Name == "spill valve").States);
+        VehicleKnob hose = gifu.Knobs.Single(k => k.Name == "hose");
+        Assert.Equal(1, hose.PositionDuring("Mouse over 2"));
+        Assert.Equal(0, hose.PositionDuring("Mouse off"));
+
+        // The pump runs only where the truck is simulated; the others hear its suction and show its tank as it says.
+        Assert.Contains("ShitTank::Pump", gifu.FollowOff);
+        VehicleKnob suction = gifu.Knobs.Single(k => k.Name == "suction");
+        Assert.True(suction.BySimulator);
+        Assert.EndsWith("/SuctionSound", suction.Shows);
+        Assert.Equal(1, suction.PositionDuring("Suck shit"));
+        VehicleKnob tank = gifu.Knobs.Single(k => k.Name == "septic tank");
+        Assert.True(tank.BySimulator);
+        Assert.Equal(10000f, tank.ValueAt(tank.Highest));
+        Assert.Equal(250, tank.PositionOf(10000f));
+
+        // Only a knob told by the simulating machine and read from states can show an object.
+        Assert.All(gifu.Knobs.Where(k => k.Name != "suction"), k => Assert.Null(k.Shows));
+        string wrong = File.ReadAllText(Path.Combine(folder, "gifu.json")).Replace("\"machine\": \"Pump\", \"by\": \"simulator\",", "\"machine\": \"Pump\",");
+        var error = Assert.Throws<FormatException>(() => VehicleDefinition.Parse(wrong));
+        Assert.Contains("shows an object", error.Message);
     }
 
     [Theory]

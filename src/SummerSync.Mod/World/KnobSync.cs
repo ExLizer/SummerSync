@@ -64,7 +64,22 @@ namespace SummerSync.Unity.World
 
         public void Clear()
         {
+            Unshow();
             knobs.Clear();
+        }
+
+        // What this machine switched on for another's word is the game's own again.
+        private void Unshow()
+        {
+            for (int i = 0; i < knobs.Count; i++)
+            {
+                // Unity's null check is also true for a destroyed object.
+                if (knobs[i].ShownHere && knobs[i].Shown != null)
+                {
+                    knobs[i].Shown.SetActive(false);
+                    knobs[i].ShownHere = false;
+                }
+            }
         }
 
         /// <summary>
@@ -73,6 +88,7 @@ namespace SummerSync.Unity.World
         /// </summary>
         public void Add(List<string> names, List<bool> states)
         {
+            Unshow();
             knobs.Clear();
             var sorted = new List<VehicleDefinition>(VehiclePresenter.Catalog);
             sorted.Sort(delegate(VehicleDefinition a, VehicleDefinition b) { return string.CompareOrdinal(a.RootName, b.RootName); });
@@ -163,7 +179,11 @@ namespace SummerSync.Unity.World
         {
             VehicleKnob described = knob.Definition;
             int shared = Shared(knob, current);
-            bool awake = knob.Machine.enabled && knob.Machine.gameObject.activeInHierarchy;
+            bool simulates = vehicles.SimulatesRoot(knob.Root) || current.IsOnlyHere(knob.FirstIndex);
+
+            // A knob that only shows an object: where the vehicle is not simulated its machine is paused on purpose.
+            bool showsOnly = knob.Shown != null && !simulates;
+            bool awake = (showsOnly || knob.Machine.enabled) && knob.Machine.gameObject.activeInHierarchy;
             if (!awake)
             {
                 // Far away the game switches it off: nothing is shown or told until it is back.
@@ -172,10 +192,19 @@ namespace SummerSync.Unity.World
                 return;
             }
 
-            int local = Local(knob);
-            bool simulates = vehicles.SimulatesRoot(knob.Root) || current.IsOnlyHere(knob.FirstIndex);
+            int local = LocalHere(knob, simulates);
             if (simulates)
             {
+                if (knob.ShownHere)
+                {
+                    // Switched on here for the machine that simulated it until now: from here on the game's own machine says.
+                    knob.ShownHere = false;
+                    if (local == 0 && knob.Shown.activeSelf)
+                    {
+                        knob.Shown.SetActive(false);
+                    }
+                }
+
                 knob.Pending = false;
                 knob.Tries = 0;
                 if (local != shared)
@@ -235,7 +264,7 @@ namespace SummerSync.Unity.World
                 return;
             }
 
-            if (Local(knob) == shared)
+            if (LocalHere(knob, false) == shared)
             {
                 knob.Pending = false;
                 Note(knob, now, "The machine that simulates the vehicle has the " + knob.Label + " at " + shared + ": shown here (state now '" + knob.Machine.ActiveStateName + "').");
@@ -323,6 +352,12 @@ namespace SummerSync.Unity.World
             knob.Part = under;
             knob.Machine = at == null ? null : DoorSync.FindMachine(at, described.Machine);
             string missing = knob.Machine == null ? "no state machine '" + described.Machine + "' at '" + described.Path + "'" : Bind(knob);
+            if (missing == null && described.Shows != null)
+            {
+                Transform shown = under.Find(described.Shows);
+                knob.Shown = shown == null ? null : shown.gameObject;
+                missing = knob.Shown == null ? "nothing at '" + described.Shows + "' to show" : null;
+            }
             for (int s = 0; missing == null && s < described.States.Length; s++)
             {
                 if (!DoorSync.HasState(knob.Machine, described.States[s]))
@@ -425,10 +460,25 @@ namespace SummerSync.Unity.World
             Note(knob, now, "The " + knob.Label + " was put at " + local + " here: the others are told.");
         }
 
+        // Where the knob is on this machine: for one that only shows an object, where this machine does not simulate the
+        // vehicle, whether that object is on; otherwise as its machine has it.
+        private static int LocalHere(Knob knob, bool simulates)
+        {
+            return knob.Shown != null && !simulates ? (knob.Shown.activeSelf ? 1 : 0) : Local(knob);
+        }
+
         // Makes the game show the knob at a position: the variable, and the state that does the rest.
         private void Show(Knob knob, int position)
         {
             VehicleKnob described = knob.Definition;
+            if (knob.Shown != null)
+            {
+                // Only the object, as the simulating machine has its own: its machine here is paused and goes nowhere.
+                knob.Shown.SetActive(position != 0);
+                knob.ShownHere = position != 0;
+                return;
+            }
+
             try
             {
                 // Null for a knob the game shows straight from its variable: another state machine reads it on
@@ -655,6 +705,12 @@ namespace SummerSync.Unity.World
             public bool Broken { get; set; }
 
             public double NextLog { get; set; }
+
+            /// <summary>For a knob that only shows an object of the game's (<see cref="VehicleKnob.Shows"/>): that object.</summary>
+            public GameObject Shown { get; set; }
+
+            /// <summary>Whether this machine switched it on for the simulating machine's word (and has to give it back).</summary>
+            public bool ShownHere { get; set; }
         }
     }
 }

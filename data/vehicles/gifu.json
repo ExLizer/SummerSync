@@ -3,6 +3,7 @@
   "nick": "gifu",
   "rootName": "GIFU(750/450psi)",
   "rescues": ["::LOD::Move"],
+  "followOff": ["ShitTank::Pump"],
   "driveTriggerPath": "LOD/PlayerTrigger/DriveTrigger",
   "driveMachineName": "PlayerTrigger",
   "keyVariable": "PlayerKeyGifu",
@@ -21,8 +22,6 @@
   "exitMargin": 0.25,
   "cabinVents": ["DriverDoors/doorl", "DriverDoors/doorr"],
   "lights": {
-    "switchPath": "LOD/Dashboard/ButtonLights",
-    "switchMachine": "Use",
     "powerPath": "LOD/Electricity/PowerON"
   },
   "engine": {
@@ -33,6 +32,7 @@
     "detailPath": "LOD"
   },
   "knobs": [
+    { "name": "lights", "path": "LOD/Dashboard/ButtonLights", "machine": "Use", "variable": "Selection", "states": ["Off", "Shorts", "Longs"] },
     { "name": "wipers", "path": "LOD/Dashboard/ButtonWipers", "machine": "Use", "variable": "Selection", "states": ["Off", "Slow", "Fast"] },
     { "name": "interior light", "path": "LOD/Dashboard/ButtonInteriorLight", "machine": "Use", "variable": "On", "states": ["Off", "On"] },
     { "name": "beacon", "path": "Dashboard/Knobs/KnobBeacon", "machine": "Use", "variable": "On", "states": ["OFF", "ON"] },
@@ -47,6 +47,13 @@
     { "name": "lift axle", "path": "Dashboard/Knobs/Liftaxle", "machine": "Use", "variable": "Up", "states": ["Set down", "Set up"] },
     { "name": "range", "path": "Simulation/Transmission", "machine": "Change", "variable": "LowGears", "states": ["High", "Low"] },    { "name": "left windscreen", "path": "LOD/WindshieldLeft", "machine": "Data", "variable": "Damaged", "states": ["State 1", "Break glass"] },
     { "name": "right windscreen", "path": "LOD/WindshieldRight", "machine": "Data", "variable": "Damaged", "states": ["State 1", "Break glass"] },
+    { "name": "hydraulic pump", "path": "Dashboard/Knobs/Hydraulics", "machine": "Use", "variable": "On", "states": ["OFF", "ON"] },
+    { "name": "spill valve", "path": "ShitTank/Lever/Pivot/OpenSpill", "machine": "Use", "variable": "Open", "states": ["Close", "Open"] },
+    { "name": "hose", "path": "ActivateHose", "machine": "Use", "states": ["Put hose back", "Remove part"],
+      "during": [["Mouse off", "Mouse over", "Put hose back"], ["Remove part", "Mouse off 2", "Mouse over 2", "Compare", "State 1"]] },
+    { "name": "suction", "path": "ShitTank", "machine": "Pump", "by": "simulator", "states": ["Wait shit", "Suck shit"],
+      "during": [["Wait shit", "Suck shit 2", "Well empty"], ["Suck shit"]], "shows": "HOSE/hose coupler(xxxxx)/Hose(xxxxx)/Hose(xxxxx)/Hose(xxxxx)/Hose(xxxxx)/Hose(xxxxx)/Hose(xxxxx)/Hose(xxxxx)/Hose(xxxxx)/Hose(xxxxx)/Hose(xxxxx)/Hose(xxxxx)/Hose(xxxxx)/Hose(xxxxx)/Hose(xxxxx)/Hose(xxxxx)/Hose(xxxxx)/Hose(xxxxx)/Hose(xxxxx)/Hose(xxxxx)/Hose(xxxxx)/SuctionSound" },
+    { "name": "septic tank", "path": "ShitTank", "machine": "Waste", "variable": "Waste", "by": "simulator", "from": 0, "step": 40, "steps": 250 },
     { "name": "turn signals", "path": "LOD/Dashboard/TurnSignals", "machine": "Usage", "by": "simulator", "states": ["State 3", "Activate dash", "Activate dash 2"],
       "during": [["Check player", "State 2", "Check steering", "State 3"], ["Activate dash", "On", "Off"], ["Activate dash 2", "On 2", "Off 2"]] }
   ],

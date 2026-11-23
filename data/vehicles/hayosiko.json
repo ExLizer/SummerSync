@@ -21,8 +21,6 @@
   "exitMargin": 0.25,
   "cabinVents": ["DriverDoors/doorl/Handle", "DriverDoors/doorr/Handle", "RearDoor/doorear", "SideDoor/door/Collider"],
   "lights": {
-    "switchPath": "LOD/Dashboard/Knobs/Lights",
-    "switchMachine": "Use",
     "powerPath": "LOD/Electricity/PowerON"
   },
   "engine": {
@@ -33,6 +31,7 @@
     "detailPath": "LOD"
   },
   "knobs": [
+    { "name": "lights", "path": "LOD/Dashboard/Knobs/Lights", "machine": "Use", "variable": "Selection", "states": ["Off", "Shorts", "Longs"] },
     { "name": "wipers", "path": "LOD/Dashboard/Knobs/ButtonWipers", "machine": "Use", "variable": "Selection", "states": ["Off", "Slow", "Fast"] },
     { "name": "interior light", "path": "LOD/InteriorLight/Use", "machine": "Use", "variable": "LightON", "states": ["State 3", "State 1"] },
     { "name": "radio volume", "path": "RadioPivot/Radio/ButtonsRadio/RadioVolume", "machine": "Knob", "variable": "Volume", "step": 0.1, "steps": 10, "states": ["Off", "Check tune"] },

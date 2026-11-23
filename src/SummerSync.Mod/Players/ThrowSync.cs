@@ -65,6 +65,22 @@ namespace SummerSync.Unity.Players
         private const string RocketBagVariable = "Bag";
         private const int BagLooks = 15;
 
+        // Teimo's flyer job (decoded level of 2026-10-18, "STORE/AdvertSpawn/teimo advert pile(itemx) :: Use"): a click on the
+        // pile ("PICK A SHEET") takes one off its "Sheets" and, in "Open", makes a flyer from the prefab "teimo advert" at the
+        // pile's "Spawn" ("CreateObject", kept in no variable). The pile is a loose thing of the job (data/jobs/teimoads.json,
+        // "loose"): it lies under "STORE/AdvertSpawn" until someone carries it off, and then wherever it was put. Given a place
+        // to keep what it makes, a flyer is noticed as the rest, and the others make it with its machines on. The pile's height
+        // is its "ScalePivot" at "Sheets" over "SheetsScaleDivider", set by its state "Scale" only in the game that took the
+        // sheet; the others' piles get the numbers with the pile (ObjectPresenter.Items) and are set to that height here.
+        private const string AdvertPile = "teimo advert pile(itemx)";
+        private const string AdvertSpawn = "AdvertSpawn";
+        private const string AdvertRoot = "STORE";
+        private const string AdvertPileMachine = "Use";
+        private const string AdvertScalePivot = "ScalePivot";
+        private const string AdvertSheets = "Sheets";
+        private const string AdvertDivider = "SheetsScaleDivider";
+        private const double PileLookSeconds = 0.5;
+
         // A thrown thing has its name and speed after its first frame; told then, or after this long at most.
         private const double TellAfter = 0.1;
         private const double TellAtMost = 0.6;
@@ -83,6 +99,11 @@ namespace SummerSync.Unity.Players
         private bool searchReported;
         private int bagLooks;
         private bool bagFound;
+        private readonly List<GameObject> pilesFound = new List<GameObject>();
+        private readonly List<ushort> pileIds = new List<ushort>();
+        private PlayMakerFSM pileMachine;
+        private Transform pileScale;
+        private double nextPileLook;
 
         public ThrowSync(Logger log, NetworkManager manager, ObjectPresenter objects)
         {
@@ -120,7 +141,10 @@ namespace SummerSync.Unity.Players
                 searchReported = false;
                 bagLooks = 0;
                 bagFound = false;
+                pileMachine = null;
+                pileScale = null;
                 nextSearch = now;
+                nextPileLook = now;
             }
 
             if (current == null)
@@ -145,6 +169,22 @@ namespace SummerSync.Unity.Players
             if (!found)
             {
                 return;
+            }
+
+            if (now >= nextPileLook)
+            {
+                nextPileLook = now + PileLookSeconds;
+
+                // Unity's null check is also true for a destroyed component.
+                if (pileMachine == null)
+                {
+                    nextPileLook = now + SearchInterval;
+                    SearchPile();
+                }
+                else
+                {
+                    KeepPileHeight();
+                }
             }
 
             for (int i = 0; i < wanted.Count; i++)
@@ -253,6 +293,65 @@ namespace SummerSync.Unity.Players
 
             bagFound = true;
             log.Info(LogCategory.Player, "The rockets taken out of the fireworks bag are shared (" + (throwers.Count - before) + " maker(s) in its machine '" + FireworksMachine + "').");
+        }
+
+        // Teimo's pile of flyers, under the store's spawn until someone carries it off, then wherever it lies (see AdvertPile).
+        private void SearchPile()
+        {
+            GameObject store = GameObject.Find("/" + AdvertRoot);
+            Transform spawn = store == null ? null : store.transform.Find(AdvertSpawn);
+            Transform pile = spawn == null ? null : spawn.Find(AdvertPile);
+            if (pile == null)
+            {
+                GameObject top = GameObject.Find("/" + AdvertPile);
+                pile = top == null ? null : top.transform;
+            }
+
+            if (pile == null)
+            {
+                objects.SharedNamed(AdvertPile, pilesFound, pileIds);
+                pile = pilesFound.Count == 0 ? null : pilesFound[0].transform;
+            }
+
+            PlayMakerFSM use = pile == null ? null : DoorSync.FindMachine(pile, AdvertPileMachine);
+
+            // Its object is off until the job is offered, and its machine reads its states only then (PlayMaker's Awake): read
+            // before that (InitData), the machine is left without its owner and never starts (seen in the game: no state, deaf to
+            // events). Looked for again until it is awake.
+            if (use == null || use.Fsm == null || !use.Fsm.Initialized)
+            {
+                return;
+            }
+
+            int before = throwers.Count;
+            AddThrowers(use, false, true);
+            pileMachine = use;
+            pileScale = pile.Find(AdvertScalePivot);
+            log.Info(LogCategory.Player, "The flyers taken from Teimo's pile are shared (" + (throwers.Count - before) + " maker(s) in '" + pile.name + " :: " + AdvertPileMachine + "').");
+        }
+
+        // The pile as high as its number of sheets says, as its state "Scale" sets it in the game that took the last one.
+        private void KeepPileHeight()
+        {
+            // Unity's null check is also true for a destroyed object.
+            if (pileScale == null)
+            {
+                return;
+            }
+
+            FsmInt sheets = pileMachine.FsmVariables.FindFsmInt(AdvertSheets);
+            FsmFloat divider = pileMachine.FsmVariables.FindFsmFloat(AdvertDivider);
+            if (sheets == null || divider == null || divider.Value <= 0f || sheets.Value < 1)
+            {
+                return;
+            }
+
+            float height = sheets.Value / divider.Value;
+            Vector3 scale = pileScale.localScale;
+            if (Mathf.Abs(scale.z - height) > 0.001f)
+            {
+                pileScale.localScale = new Vector3(1f, 1f, height);
+            }
         }
 
         // The things a state machine makes with "CreateObject"; thrown ones are made elsewhere with their machines off.

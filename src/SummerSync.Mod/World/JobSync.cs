@@ -352,6 +352,13 @@ namespace SummerSync.Unity.World
                 }
 
                 GameObject root = GameObject.Find("/" + definition.Root);
+                if (root == null)
+                {
+                    // A vehicle's name can have a slash in it (the Gifu's), which Find reads as a path.
+                    Transform vehicle = VehiclePresenter.FindRoot(definition.Root);
+                    root = vehicle == null ? null : vehicle.gameObject;
+                }
+
                 Transform at = root == null ? null : root.transform.Find(definition.Path);
                 for (int m = 0; at == null && root != null && m < definition.Moved.Length; m++)
                 {

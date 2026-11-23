@@ -115,6 +115,10 @@ namespace SummerSync.Unity.World
         private static readonly string[] VehicleCloseStates = { "Sound", "Close door", "Close hood" };
         private const string OpenEvent = "SUMMERSYNC OPEN";
         private const string CloseEvent = "SUMMERSYNC CLOSE";
+
+        // The game's action that shoves a door with a torque, and for how long after a frame of it the door's joints give.
+        private const string TorqueAction = "AddTorque";
+        private const float PushSeconds = 0.25f;
         private const double SearchInterval = 3.0;
         private const double FirstSearchDelay = 1.5;
         private const double FollowSeconds = 2.0;
@@ -599,6 +603,13 @@ namespace SummerSync.Unity.World
             }
 
             bool open = door.Open.Value;
+            if (!door.Following && door.Hinge != null && door.Vehicle != null && Pushing(door))
+            {
+                // The local player shoves the door of a vehicle: it gives as the game made it give, also where another machine
+                // runs the vehicle (there the mod holds its joints, and an open door's lock kept it from being shut).
+                vehicles.LetPush(door.Vehicle, door.Hinge.GetComponent<Rigidbody>(), PushSeconds);
+            }
+
             if (!door.Following)
             {
                 // The local player used it, or the game did.
@@ -665,6 +676,53 @@ namespace SummerSync.Unity.World
                         + door.Machine.ActiveStateName + "'). " + (door.OpenStates == null ? "Its state was set without the animation." : "It stays as it is here."));
                 }
             }
+        }
+
+        // Whether the door's machine is pushing it now: in one of its states with a torque action (the van's "Open door" and
+        // "Open door 2", while the mouse is held; the level file, 2026-11-23). Found the first time it is asked.
+        private static bool Pushing(Door door)
+        {
+            PlayMakerFSM machine = door.Machine;
+            if (!machine.enabled)
+            {
+                return false;
+            }
+
+            if (door.PushStates == null)
+            {
+                var pushing = new List<string>();
+                FsmState[] states = machine.FsmStates;
+                for (int s = 0; s < states.Length; s++)
+                {
+                    FsmStateAction[] actions = states[s].Actions;
+                    for (int a = 0; actions != null && a < actions.Length; a++)
+                    {
+                        if (actions[a] != null && actions[a].GetType().Name == TorqueAction)
+                        {
+                            pushing.Add(states[s].Name);
+                            break;
+                        }
+                    }
+                }
+
+                door.PushStates = pushing.ToArray();
+            }
+
+            if (door.PushStates.Length == 0)
+            {
+                return false;
+            }
+
+            string active = machine.ActiveStateName;
+            for (int i = 0; i < door.PushStates.Length; i++)
+            {
+                if (door.PushStates[i] == active)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         // Looks for the doors of the house. False while the house is not there to be searched.
@@ -1349,6 +1407,12 @@ namespace SummerSync.Unity.World
             public double Deadline { get; set; }
 
             public bool Complained { get; set; }
+
+            /// <summary>
+            /// The states of its machine in which it pushes the door with a torque (the player holding it to open or shut it),
+            /// read the first time they are needed; empty for a door without any.
+            /// </summary>
+            public string[] PushStates { get; set; }
 
             /// <summary>Whether its machine is in one of the states it is open in.</summary>
             public bool OpenByState()

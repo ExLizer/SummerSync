@@ -506,6 +506,48 @@ public class ObjectReplicationTests
         Assert.Equal(0, client.Replication.Malformed + host.Replication.Malformed);
     }
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    public void What_the_host_takes_back_is_never_said_to_be_where_the_host_last_had_it(int framesLater)
+    {
+        // A client takes the crate while the host's physics still has it awake (it settles, or rolls), carries it off, and
+        // lets go of it: the host takes it back in the update that reads the hand-back. Whatever the frame the hand-back
+        // lands in, the host says where the client put it down, never where the host last had it before the client took it
+        // (that came out once, in the flush of that same update: the others saw it jump back and slide; 2026-11-23).
+        var net = new SessionNet(new NetworkConditions { LatencyMs = 9 * framesLater });
+        var host = new FakeWorld(net.Host, Yard());
+        var client = new FakeWorld(net.AddClient("Julian"), Yard());
+        net.Run(2);
+        host.Push(host[0], 30);
+        net.Run(0.5 + (framesLater / 60.0));
+        BodyPose lastHere = host[0].Pose;
+        client.Grab(client[0]);
+        net.Run(2 + (framesLater / 60.0));
+        Assert.Equal(BodyRole.Follow, host[0].Shared.Role);
+
+        var heard = new List<BodyPose>();
+        client.Replication.StateHeard += (body, time, pose) =>
+        {
+            if (body == client[0].Shared)
+            {
+                heard.Add(pose);
+            }
+        };
+        client.LetGo(settleSeconds: 0.2);
+        net.Run(3);
+
+        Assert.Equal(BodyRole.Simulate, host[0].Shared.Role);
+        Assert.Equal(1, host[0].HandOffs);
+
+        // Carried at 1.2 m, put down there; the host last had it rolling on the ground.
+        Assert.NotEmpty(heard);
+        Assert.All(heard, pose => Assert.True(pose.Y > 1.0f, "heard at (" + pose.X + ", " + pose.Y + ", " + pose.Z + "), the host had it last at (" + lastHere.X + ", " + lastHere.Y + ", " + lastHere.Z + ")"));
+        AssertSamePlace(host[0].Pose, client[0].Pose, 0.01, 360);
+    }
+
     // The heart of the phase: whoever picks an object up simulates it, everyone else follows, and it goes back
     // to the host when it has come to rest.
     [Fact]

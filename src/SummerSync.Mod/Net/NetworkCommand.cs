@@ -160,7 +160,7 @@ namespace SummerSync.Unity.Net
 
             if (args.Length > 0 && (string.Equals(args[0], "seat", System.StringComparison.OrdinalIgnoreCase) || string.Equals(args[0], "asiento", System.StringComparison.OrdinalIgnoreCase)))
             {
-                ModConsole.Print(Prefix + RuntimeDriver.Seat(args.Length > 1 ? args[1] : null));
+                ModConsole.Print(Prefix + RuntimeDriver.Seat(args.Length > 1 ? string.Join(" ", args, 1, args.Length - 1) : null));
                 return;
             }
 

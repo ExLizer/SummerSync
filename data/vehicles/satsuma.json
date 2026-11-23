@@ -21,9 +21,6 @@
   "rescues": ["::Setup::Move"],
   "cabinVents": ["Body/pivot_door_left/door left(Clone)", "Body/pivot_door_right/door right(Clone)"],
   "lights": {
-    "switchUnder": "dashboard meters(Clone)",
-    "switchPath": "Knobs/ButtonsDash/LightModes",
-    "switchMachine": "Use",
     "powerPath": "Electricity/PowerON"
   },
   "engine": {
@@ -34,6 +31,7 @@
     "ignitionMachine": "UseNew"
   },
   "knobs": [
+    { "name": "lights", "under": "dashboard meters(Clone)", "path": "Knobs/ButtonsDash/LightModes", "machine": "Use", "variable": "Selection", "states": ["Off", "Shorts", "Longs"] },
     { "name": "wipers", "under": "dashboard meters(Clone)", "path": "Knobs/ButtonsDash/ButtonWipers", "machine": "Use", "variable": "Selection", "states": ["Off", "Slow", "Fast"] },
     { "name": "hazard lights", "under": "dashboard meters(Clone)", "path": "Knobs/ButtonsDash/Hazard", "machine": "Use", "variable": "HazardsOn", "states": ["On", "Off"] },
     { "name": "choke", "under": "dashboard meters(Clone)", "path": "Knobs/ButtonsDash/Choke", "machine": "Choke", "variable": "ChokeLevel", "step": 0.05, "steps": 20 },

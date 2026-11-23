@@ -41,6 +41,13 @@ namespace SummerSync.Core.World
         /// <summary>Counts up with each pose told.</summary>
         public int Serial;
 
+        /// <summary>
+        /// The punches to his head counted so far in the game that runs him (his head's "Hits"): a game that runs him next
+        /// goes on from there, so that whoever runs him, fifty and one put him down. Travels with the flags (a tally has eight
+        /// numbers at most), up to 255.
+        /// </summary>
+        public int Hits;
+
         public byte Clip(int animation)
         {
             switch (animation)
@@ -74,7 +81,7 @@ namespace SummerSync.Core.World
                 Millimetres(Z),
                 (int)Math.Round(Repeat(Yaw) * 100.0),
                 unchecked(Clip0 | (Clip1 << 8) | (Clip2 << 16) | (Clip3 << 24)),
-                (Calm ? 1 : 0) | (Out ? 2 : 0) | (Things << 8),
+                (Calm ? 1 : 0) | (Out ? 2 : 0) | (Things << 8) | (Math.Min(255, Math.Max(0, Hits)) << 16),
                 Serial,
             };
         }
@@ -107,6 +114,7 @@ namespace SummerSync.Core.World
             pose.Out = (values[6] & 2) != 0;
             pose.Things = (byte)((values[6] >> 8) & 0xFF);
             pose.Serial = values[7];
+            pose.Hits = (values[6] >> 16) & 0xFF;
             return true;
         }
 
@@ -142,10 +150,19 @@ namespace SummerSync.Core.World
         public const float Margin = 2f;
 
         /// <summary>
+        /// Metres from him beyond which the runner's player is in no fight with him: he chases to 4 m and then gives up, and
+        /// a knockout wakes the player somewhere else. Kept by a runner that far, he stayed in the game of a player who had
+        /// left (and there, far from its player, he may be switched off with the dance hall), and whatever the others did to
+        /// him there counted for nothing.
+        /// </summary>
+        public const float FightReach = 20f;
+
+        /// <summary>
         /// The player whose game runs him now, or -1 for nobody. <paramref name="runner"/> is who runs him (-1: nobody),
         /// <paramref name="calm"/> whether he is calm there, <paramref name="candidates"/> the players in the world. One
-        /// who is not among them (gone, or out of the world) hands him to the nearest at once; otherwise he changes hands
-        /// only calm, to a player nearer by more than <see cref="Margin"/>.
+        /// who is not among them (gone, or out of the world) hands him to the nearest at once, and so does one farther
+        /// from him than <see cref="FightReach"/>; otherwise he changes hands only calm, to a player nearer by more than
+        /// <see cref="Margin"/>.
         /// </summary>
         public static int Choose(int runner, bool calm, IList<FighterCandidate> candidates)
         {
@@ -174,7 +191,12 @@ namespace SummerSync.Core.World
                 return candidates[nearest].Player;
             }
 
-            if (!calm || nearest == current)
+            if (nearest == current)
+            {
+                return runner;
+            }
+
+            if (!calm && candidates[current].Distance <= FightReach)
             {
                 return runner;
             }

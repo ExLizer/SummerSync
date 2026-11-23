@@ -111,6 +111,10 @@ namespace SummerSync.Unity.World
         private byte ownerWanted = byte.MaxValue;
         private int blockedCount;
 
+        // Flat tyres of this game alone (where another game runs the car) written down per session.
+        private const int FlatsLogged = 8;
+        private int flatsHereAlone;
+
         public CarValueSync(Logger log)
             : this(log, null)
         {
@@ -1354,6 +1358,13 @@ namespace SummerSync.Unity.World
                     Outcomes++;
                     log.Info(LogCategory.Vehicle, "Car numbers: the tyre of '" + watch.Spec.Entry + "' went flat here; told.");
                 }
+                else if (flat && !applying && !runsCar && flatsHereAlone < FlatsLogged)
+                {
+                    // Not from the game that runs the car, which has the tyre whole as far as this game knows: written down with
+                    // what the hub's machine read, to find what lets a tyre go flat in only one game (reported 2026-11-23).
+                    flatsHereAlone++;
+                    log.Warning(LogCategory.Vehicle, "Car numbers: the tyre of '" + watch.Spec.Entry + "' went flat in this game, which does not run the car (into '" + state + "'): not told. " + DescribeHub(watch.Machine) + ".");
+                }
             }
         }
 
@@ -1395,6 +1406,24 @@ namespace SummerSync.Unity.World
             }
 
             flag.Was = flag.Damaged.Value;
+        }
+
+        // What a hub's "Condition" read when it left its resting state: the health it compares, the tyre it reads it from and
+        // that tyre's own, the car's speed, and the corner's suspension machine.
+        private string DescribeHub(PlayMakerFSM machine)
+        {
+            FsmFloat health = machine.FsmVariables.FindFsmFloat("Health");
+            FsmGameObject tyre = machine.FsmVariables.FindFsmGameObject("ThisTire");
+            GameObject tyreObject = tyre == null ? null : tyre.Value;
+            PlayMakerFSM use = tyreObject == null ? null : DoorSync.FindMachine(tyreObject.transform, "Use");
+            FsmFloat tyreHealth = use == null ? null : use.FsmVariables.FindFsmFloat("TireHealth");
+            var text = new System.Text.StringBuilder(160);
+            text.Append("Its health ").Append(health == null ? "unknown" : health.Value.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture));
+            text.Append(", its tyre ").Append(tyreObject == null ? "none" : "'" + tyreObject.name + "'");
+            text.Append(" with ").Append(tyreHealth == null ? "no health" : tyreHealth.Value.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture));
+            Rigidbody body = car == null ? null : car.GetComponent<Rigidbody>();
+            text.Append(", the car ").Append(body == null ? "not found" : body.isKinematic ? "kinematic here" : "with its own physics here, at " + body.velocity.magnitude.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + " m/s");
+            return text.ToString();
         }
 
         private void Puncture(PartEntry entry)

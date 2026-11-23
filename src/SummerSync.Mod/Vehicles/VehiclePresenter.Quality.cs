@@ -2,6 +2,7 @@ using System.Globalization;
 using SummerSync.Core.Logging;
 using SummerSync.Core.Objects;
 using SummerSync.Core.Replication;
+using SummerSync.Core.Vehicles;
 using UnityEngine;
 
 namespace SummerSync.Unity.Vehicles
@@ -31,8 +32,17 @@ namespace SummerSync.Unity.Vehicles
         private readonly Transform[] landmarks = new Transform[LandmarkPaths.Length];
         private float nextLandmarkLook;
 
+        // How often the frames this game counted short are written down, and how many such lines a session.
+        private const float ShortFramesEvery = 60f;
+        private const int ShortFramesLogged = 30;
+
         private int roughSaid;
         private float longestFrame;
+        private float nextShortFrames;
+        private int shortFramesBefore;
+        private double lostBefore;
+        private int snapsBefore;
+        private int shortFramesSaid;
         private Tracked drivenStepOf;
         private Vector3 drivenStepAt;
         private Vector3 drivenStepSpeed;
@@ -95,6 +105,40 @@ namespace SummerSync.Unity.Vehicles
             {
                 longestFrame = 0f;
             }
+
+            NoteShortFrames();
+        }
+
+        // Once a minute, if this game took frames longer than it counts one: how much of the session's clock its time did not
+        // cover, and how far behind that left the vehicles of other machines before they caught up.
+        private void NoteShortFrames()
+        {
+            if (Time.unscaledTime < nextShortFrames)
+            {
+                return;
+            }
+
+            nextShortFrames = Time.unscaledTime + ShortFramesEvery;
+            int frames = clock.ShortFrames - shortFramesBefore;
+            double lost = clock.Lost - lostBefore;
+            int snaps = clock.Snaps - snapsBefore;
+            double behind = clock.TakeMostBehind();
+            shortFramesBefore = clock.ShortFrames;
+            lostBefore = clock.Lost;
+            snapsBefore = clock.Snaps;
+            if (frames == 0 || shortFramesSaid >= ShortFramesLogged)
+            {
+                return;
+            }
+
+            shortFramesSaid++;
+            log.Info(
+                LogCategory.Vehicle,
+                "Frames: in the last " + ShortFramesEvery.ToString("0", CultureInfo.InvariantCulture) + " s this game took " + frames + " frame(s) longer than it counts one ("
+                + Time.maximumDeltaTime.ToString("0.000", CultureInfo.InvariantCulture) + " s), and its time fell " + lost.ToString("0.00", CultureInfo.InvariantCulture)
+                + " s behind the session's clock; the vehicles other machines run were shown up to " + behind.ToString("0.00", CultureInfo.InvariantCulture)
+                + " s behind and caught up" + (snaps > 0 ? ", " + snaps + " time(s) put where they belong at once (more than " + StepClock.MostBehind.ToString("0.0", CultureInfo.InvariantCulture) + " s behind)" : string.Empty)
+                + (shortFramesSaid == ShortFramesLogged ? " (no more of these lines this session)." : "."));
         }
 
         // In FixedUpdate: whether the vehicle the local player drives moved in the last step as its speed takes it. Something

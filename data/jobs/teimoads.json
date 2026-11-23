@@ -9,5 +9,6 @@
     { "path": "", "fsm": "Data", "variable": "OfferJob", "kind": "said" },
     { "path": "", "fsm": "Data", "variable": "Delivered", "kind": "amount", "scale": 1 }
   ],
-  "actives": ["/STORE/LOD/ActivateStore/PayMoneyAdvert", "/STORE/AdvertSpawn"]
+  "actives": ["/STORE/LOD/ActivateStore/PayMoneyAdvert", "/STORE/AdvertSpawn"],
+  "loose": ["STORE/AdvertSpawn"]
 }

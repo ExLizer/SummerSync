@@ -6,8 +6,6 @@
   "driveTriggerPath": "LOD/PlayerTrigger/DriveTrigger",
   "driveMachineName": "PlayerTrigger",
   "lights": {
-    "switchPath": "LOD/Dashboard/Lights",
-    "switchMachine": "Use",
     "powerPath": "LOD/Suspension/Steering/SteeringPivot/Headlight/Electricity/PowerON"
   },
   "engine": {
@@ -16,6 +14,7 @@
     "detailPath": "LOD"
   },
   "knobs": [
+    { "name": "lights", "path": "LOD/Dashboard/Lights", "machine": "Use", "variable": "LightsOn", "states": ["Off", "Shorts"] },
     { "name": "fuel tap", "path": "LOD/Dashboard/FuelTap", "machine": "Use", "variable": "FuelTapState", "states": ["On", "Off", "Res"] },
     { "name": "kickstand", "path": "Kickstand", "machine": "Use", "variable": "StandOn", "states": ["Stand off", "Stand on"] }
   ],

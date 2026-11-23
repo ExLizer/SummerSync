@@ -890,6 +890,7 @@ namespace SummerSync.Core.Objects
             body.NearClaimAt = clock + NearClaimInterval;
             if (body.Owner != session.LocalPlayerId)
             {
+                StartReporting(body, WorldPose(body));
                 body.PendingClaim = true;
                 body.Role = BodyRole.Simulate;
                 body.Buffer = null;
@@ -1219,6 +1220,11 @@ namespace SummerSync.Core.Objects
                 best.Owner = entry.Owner;
                 best.Held = entry.Held;
                 best.Present = true;
+                if (entry.Owner == session.LocalPlayerId && best.Role != BodyRole.Simulate)
+                {
+                    StartReporting(best, entry.Pose);
+                }
+
                 best.Role = entry.Owner == session.LocalPlayerId ? BodyRole.Simulate : BodyRole.Follow;
                 best.DroppedAt = best.Role == BodyRole.Simulate && !entry.Held ? clock : double.NaN;
                 best.Target = entry.Pose;
@@ -1281,6 +1287,7 @@ namespace SummerSync.Core.Objects
             if (body.Role == BodyRole.Follow && body.Owner == Protocol.HostPlayerId && !body.Held && body.Present && clock >= body.NearClaimAt)
             {
                 body.NearClaimAt = clock + NearClaimInterval;
+                StartReporting(body, WorldPose(body));
                 body.PendingClaim = true;
                 body.Role = BodyRole.Simulate;
                 body.Buffer = null;
@@ -1348,6 +1355,7 @@ namespace SummerSync.Core.Objects
 
             if (body.Owner != session.LocalPlayerId)
             {
+                StartReporting(body, pose);
                 body.PendingClaim = true;
                 body.Role = BodyRole.Simulate;
                 body.Buffer = null;
@@ -1409,6 +1417,7 @@ namespace SummerSync.Core.Objects
             if (body.Owner != session.LocalPlayerId)
             {
                 // At once, without waiting for the host: the object has to follow the hand from the first frame.
+                StartReporting(body, WorldPose(body));
                 body.PendingClaim = true;
                 body.Role = BodyRole.Simulate;
                 body.Buffer = null;
@@ -1450,6 +1459,7 @@ namespace SummerSync.Core.Objects
         // Host: starts simulating an object that someone else was simulating.
         private void TakeOver(SharedBody body, BodyPose pose, BodyMotion motion)
         {
+            StartReporting(body, pose);
             body.Owner = Protocol.HostPlayerId;
             body.Held = false;
             body.Role = BodyRole.Simulate;
@@ -1457,12 +1467,26 @@ namespace SummerSync.Core.Objects
             body.HasHandOff = true;
             body.HandOffPose = pose;
             body.HandOffMotion = motion;
-            if (pose.Parent == 0)
-            {
-                body.LocalPose = pose;
-            }
-
             body.WasAwake = true;
+        }
+
+        // This machine is about to simulate the object again: what it reported the last time it did (a pose, being awake, a
+        // report not sent yet) belongs to then. Kept, the first flush after a hand-back, which comes in the same update as the
+        // message and before this game has reported the object once, sent where this machine last had it: every other game
+        // showed the thing jump back there and slide to where it was put down (a guest's log of 2026-11-18: a coolant can and
+        // a jack in the host's car, shown for a frame where they lay before the guest took them).
+        private static void StartReporting(SharedBody body, BodyPose from)
+        {
+            body.Reported = false;
+            body.LocalAwake = false;
+            body.AwakeSinceSent = false;
+            body.SampledAt = double.NaN;
+            body.LocalMotion = default(BodyMotion);
+            body.StreamPose = from;
+            if (from.Parent == 0)
+            {
+                body.LocalPose = from;
+            }
         }
 
         private void OnPlayerLeft(PlayerInfo player, DisconnectReason reason)

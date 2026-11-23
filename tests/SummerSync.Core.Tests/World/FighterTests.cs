@@ -66,10 +66,14 @@ public class FighterTests
             Out = true,
             Things = 0b1010_0001,
             Serial = 77,
+            Hits = 38,
         };
 
         int[] numbers = pose.Pack();
         Assert.Equal(FighterPose.Count, numbers.Length);
+
+        // A tally carries eight numbers at most: a ninth was dropped without a word (seen in the game, 2026-11-23).
+        Assert.True(numbers.Length <= TallyWire.MaxValues);
         Assert.True(FighterPose.TryUnpack(numbers, out FighterPose back));
         Assert.Equal(3, back.Runner);
         Assert.Equal(-1544.245f, back.X, 3);
@@ -84,6 +88,7 @@ public class FighterTests
         Assert.True(back.Out);
         Assert.Equal(0b1010_0001, back.Things);
         Assert.Equal(77, back.Serial);
+        Assert.Equal(38, back.Hits);
     }
 
     [Fact]
@@ -92,13 +97,14 @@ public class FighterTests
         Assert.False(FighterPose.TryUnpack(null, out _));
         Assert.False(FighterPose.TryUnpack(new int[7], out _));
         Assert.False(FighterPose.TryUnpack(new int[8], out _));
+        Assert.False(FighterPose.TryUnpack(new int[9], out _));
         Assert.False(FighterPose.TryUnpack(new[] { 1, int.MaxValue, 0, 0, 0, 0, 0, 0 }, out _));
     }
 
     [Fact]
     public void The_nearest_player_runs_him_and_keeps_him_while_he_fights()
     {
-        var candidates = new List<FighterCandidate> { new(0, 30f), new(1, 5f), new(2, 12f) };
+        var candidates = new List<FighterCandidate> { new(0, 3f), new(1, 0.8f), new(2, 12f) };
 
         // Nobody runs him yet, or his runner left: the nearest.
         Assert.Equal(1, FighterOwnership.Choose(-1, true, candidates));
@@ -113,6 +119,23 @@ public class FighterTests
         Assert.Equal(0, FighterOwnership.Choose(0, true, close));
 
         Assert.Equal(-1, FighterOwnership.Choose(0, true, new List<FighterCandidate>()));
+    }
+
+    [Fact]
+    public void A_runner_whose_player_is_far_from_him_hands_him_over_even_in_a_fight()
+    {
+        // The runner's player was knocked out and woke up far away, or walked off: whoever is by him now runs him, or the
+        // punches of the one beside him count in a game where he is switched off (the dance hall, far from its player).
+        var walkedOff = new List<FighterCandidate> { new(0, FighterOwnership.FightReach + 5f), new(1, 1f) };
+        Assert.Equal(1, FighterOwnership.Choose(0, false, walkedOff));
+
+        // Within reach the fight stays where it is.
+        var near = new List<FighterCandidate> { new(0, FighterOwnership.FightReach - 1f), new(1, 1f) };
+        Assert.Equal(0, FighterOwnership.Choose(0, false, near));
+
+        // Far, but nobody nearer by the margin: nobody to give him to.
+        var bothFar = new List<FighterCandidate> { new(0, 60f), new(1, 59f) };
+        Assert.Equal(0, FighterOwnership.Choose(0, false, bothFar));
     }
 
     [Fact]

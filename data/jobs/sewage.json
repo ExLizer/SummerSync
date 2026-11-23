@@ -1,0 +1,7 @@
+{
+  "format": 1,
+  "name": "sewage",
+  "root": "GIFU(750/450psi)",
+  "path": "ShitTank",
+  "loose": ["GIFU(750/450psi)/HOSE/hose coupler(xxxxx)/Hose(xxxxx)/Hose(xxxxx)/Hose(xxxxx)/Hose(xxxxx)/Hose(xxxxx)/Hose(xxxxx)/Hose(xxxxx)/Hose(xxxxx)/Hose(xxxxx)/Hose(xxxxx)/Hose(xxxxx)/Hose(xxxxx)/Hose(xxxxx)/Hose(xxxxx)/Hose(xxxxx)/Hose(xxxxx)/Hose(xxxxx)/Hose(xxxxx)/Hose(xxxxx)"]
+}

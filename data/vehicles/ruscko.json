@@ -21,8 +21,6 @@
   "exitMargin": 0.25,
   "cabinVents": ["DriverDoors/doorl/door/Handle", "DriverDoors/doorr/door/Handle", "RearDoor/doorear/door/Handle"],
   "lights": {
-    "switchPath": "LOD/Dashboard/Knobs/Lights",
-    "switchMachine": "Use",
     "powerPath": "LOD/Electricity/PowerON"
   },
   "engine": {
@@ -33,6 +31,7 @@
     "detailPath": "LOD"
   },
   "knobs": [
+    { "name": "lights", "path": "LOD/Dashboard/Knobs/Lights", "machine": "Use", "variable": "Selection", "states": ["Off", "Shorts", "Longs"] },
     { "name": "wipers", "path": "LOD/Dashboard/Knobs/ButtonWipers", "machine": "Use", "variable": "Selection", "states": ["Off", "Fast"] },
     { "name": "parking brake", "path": "LOD/Dashboard/ParkingBrake", "machine": "Use", "variable": "KnobPos", "step": 0.01, "steps": 10 }
   ],

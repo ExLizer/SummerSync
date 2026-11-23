@@ -56,6 +56,7 @@ namespace SummerSync.Unity.World
         private const string CalmEvent = "SUMMERSYNC FIGHTER CALM";
         private const string PunchEvent = "SUMMERSYNC FIGHTER PUNCH";
         private const string DownEvent = "SUMMERSYNC FIGHTER DOWN";
+        private const string HitsVariable = "Hits";
 
         // What the mod has hooked into the game's objects of each fighter, by his object: kept for as long as they live,
         // through sessions, so that nothing is hooked twice and every game numbers his sounds the same.
@@ -75,6 +76,7 @@ namespace SummerSync.Unity.World
         private double clock;
         private double nextSearch;
         private double nextRunner;
+        private bool ghostSaid;
 
         public FighterSync(Logger log, NetworkManager manager, VehiclePresenter vehicles)
         {
@@ -463,6 +465,19 @@ namespace SummerSync.Unity.World
                 log.Warning(Category, "Fighter '" + definition.Name + "': no '" + down.Path + " :: " + down.Machine + "' with '" + down.State + "'; going down is each game's own.");
             }
 
+            // His bodies while he stands: the pelvis and the head on their joints, and what throws the player out. His
+            // ragdoll, which takes over when he goes down, is BodySync's.
+            var bodies = new List<Rigidbody>();
+            Rigidbody[] standing = root.GetComponentsInChildren<Rigidbody>(true);
+            for (int i = 0; i < standing.Length; i++)
+            {
+                if (!Below(standing[i].transform, kept))
+                {
+                    bodies.Add(standing[i]);
+                }
+            }
+
+            fighter.Bodies = bodies.ToArray();
             fighter.Asleep.AddRange(fighter.Machines);
             WakeUp(one);
 
@@ -779,10 +794,19 @@ namespace SummerSync.Unity.World
             }
 
             bool wasPaused = fighter.Paused.Count > 0;
+            Ghost(fighter, false);
             if (fighter.HavePose && fighter.Root.gameObject.activeInHierarchy)
             {
                 fighter.Root.position = new Vector3(fighter.Pose.X, fighter.Pose.Y, fighter.Pose.Z);
                 fighter.Root.rotation = Quaternion.Euler(0f, fighter.Pose.Yaw, 0f);
+            }
+
+            // The punches the last game that ran him counted: fifty and one put him down whoever runs him.
+            FsmInt hits = HitsOf(fighter);
+            if (fighter.HavePose && hits != null && fighter.Pose.Hits > hits.Value)
+            {
+                log.Info(Category, "Fighter '" + fighter.Definition.Name + "': " + fighter.Pose.Hits + " punch(es) to his head so far, as the game that ran him counted them (" + hits.Value + " here).");
+                hits.Value = fighter.Pose.Hits;
             }
 
             for (int i = 0; i < fighter.Paused.Count; i++)
@@ -801,6 +825,48 @@ namespace SummerSync.Unity.World
                 }
 
                 fighter.Brain.SendEvent(CalmEvent);
+            }
+        }
+
+        // His head's count of punches ("Hits" of the machine that knocks him down), or null.
+        private static FsmInt HitsOf(Fighter fighter)
+        {
+            // Unity's null check is also true for a destroyed object.
+            return fighter.Down == null ? null : fighter.Down.FsmVariables.FindFsmInt(HitsVariable);
+        }
+
+        private static int ReadHits(Fighter fighter)
+        {
+            FsmInt hits = HitsOf(fighter);
+            return hits == null ? 0 : hits.Value;
+        }
+
+        // Where another game runs him, he is put where that game has him, his bodies held by joints to a skeleton the mod
+        // moves: a wall for a vehicle that runs here, which stops dead and kills its driver (a player who drove the van into
+        // the dance hall's fighter died). Within reach of a vehicle this game simulates his bodies touch nothing, as a loose
+        // thing another game moves (ObjectPresenter); the game that runs him has him as the game does.
+        private void Ghost(Fighter fighter, bool ghost)
+        {
+            if (fighter.Ghosted == ghost)
+            {
+                return;
+            }
+
+            fighter.Ghosted = ghost;
+            Rigidbody[] bodies = fighter.Bodies;
+            for (int i = 0; bodies != null && i < bodies.Length; i++)
+            {
+                // Unity's null check is also true for a destroyed object.
+                if (bodies[i] != null)
+                {
+                    bodies[i].detectCollisions = !ghost;
+                }
+            }
+
+            if (ghost && !ghostSaid)
+            {
+                ghostSaid = true;
+                log.Info(Category, "Fighter '" + fighter.Definition.Name + "', whom another game runs, is within reach of a vehicle simulated here: his bodies touch nothing here until it is away (no more of these lines this session).");
             }
         }
 
@@ -835,6 +901,7 @@ namespace SummerSync.Unity.World
                 Yaw = fighter.Root.eulerAngles.y,
                 Calm = IsCalm(fighter),
                 Out = IsOut(fighter),
+                Hits = ReadHits(fighter),
             };
             for (int i = 0; i < fighter.Animations.Count; i++)
             {
@@ -864,7 +931,7 @@ namespace SummerSync.Unity.World
                 && (new Vector3(pose.X - last.X, pose.Y - last.Y, pose.Z - last.Z)).sqrMagnitude < PoseStep * PoseStep
                 && Mathf.Abs(Mathf.DeltaAngle(pose.Yaw, last.Yaw)) < YawStep
                 && pose.Clip0 == last.Clip0 && pose.Clip1 == last.Clip1 && pose.Clip2 == last.Clip2 && pose.Clip3 == last.Clip3
-                && pose.Calm == last.Calm && pose.Out == last.Out && pose.Things == last.Things;
+                && pose.Calm == last.Calm && pose.Out == last.Out && pose.Things == last.Things && pose.Hits == last.Hits;
             if (same && now - fighter.PoseToldAt < PoseKeepAlive)
             {
                 return;
@@ -928,6 +995,7 @@ namespace SummerSync.Unity.World
                 return;
             }
 
+            Ghost(fighter, vehicles.SimulatesAny && vehicles.TouchesSimulated(fighter.Root.position));
             for (int i = 0; i < fighter.Machines.Count; i++)
             {
                 PlayMakerFSM machine = fighter.Machines[i];
@@ -1394,6 +1462,7 @@ namespace SummerSync.Unity.World
             public readonly HashSet<FsmStateAction> Hooked = new HashSet<FsmStateAction>();
             public readonly List<PlayMakerFSM> Asleep = new List<PlayMakerFSM>();
             public bool DownHooked;
+            public Rigidbody[] Bodies;
         }
 
         // How he is shared in this session.
@@ -1485,6 +1554,14 @@ namespace SummerSync.Unity.World
                 get { return B.Sounds; }
             }
 
+            public Rigidbody[] Bodies
+            {
+                get { return B.Bodies; }
+            }
+
+            /// <summary>Whether his bodies touch nothing here for now (Ghost).</summary>
+            public bool Ghosted;
+
             public readonly List<PausedMachine> Paused = new List<PausedMachine>();
             public int Runner = -1;
             public FighterPose Pose;
@@ -1513,6 +1590,18 @@ namespace SummerSync.Unity.World
                 }
 
                 Paused.Clear();
+                if (Ghosted)
+                {
+                    Ghosted = false;
+                    for (int i = 0; Bodies != null && i < Bodies.Length; i++)
+                    {
+                        // Unity's null check is also true for a destroyed object.
+                        if (Bodies[i] != null)
+                        {
+                            Bodies[i].detectCollisions = true;
+                        }
+                    }
+                }
             }
         }
 
