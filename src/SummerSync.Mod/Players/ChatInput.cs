@@ -30,6 +30,14 @@ namespace SummerSync.Unity.Players
         /// <summary>While true, the game sees no key of the keyboard.</summary>
         public static bool Holding { get; set; }
 
+        /// <summary>The same for a window of the mod's that is typed in (the bug report), apart from the chat's own.</summary>
+        public static bool WindowHolding { get; set; }
+
+        private static bool Held
+        {
+            get { return Holding || WindowHolding; }
+        }
+
         /// <summary>Patches the game's input once per process. Safe to call every time.</summary>
         public static void Install(Logger log)
         {
@@ -94,7 +102,7 @@ namespace SummerSync.Unity.Players
         // cInput's _CheckInputs: what it just read of every key and axis, forgotten.
         private static void AfterCheckInputs()
         {
-            if (!Holding)
+            if (!Held)
             {
                 return;
             }
@@ -108,7 +116,7 @@ namespace SummerSync.Unity.Players
         // PlayMaker's GetKeyDown.OnUpdate: no event and a false result for a key of the keyboard.
         private static bool BeforeKeyDown(HutongGames.PlayMaker.Actions.GetKeyDown __instance)
         {
-            if (!Holding || !IsKeyboard(__instance.key))
+            if (!Held || !IsKeyboard(__instance.key))
             {
                 return true;
             }
@@ -124,7 +132,7 @@ namespace SummerSync.Unity.Players
         // PlayMaker's GetKey.OnEnter and OnUpdate: a key of the keyboard is up.
         private static void AfterKey(HutongGames.PlayMaker.Actions.GetKey __instance)
         {
-            if (Holding && IsKeyboard(__instance.key) && __instance.storeResult != null)
+            if (Held && IsKeyboard(__instance.key) && __instance.storeResult != null)
             {
                 __instance.storeResult.Value = false;
             }
@@ -133,7 +141,7 @@ namespace SummerSync.Unity.Players
         // PlayMaker's AnyKey.OnUpdate: nothing was pressed.
         private static bool BeforeAnyKey()
         {
-            return !Holding;
+            return !Held;
         }
     }
 }

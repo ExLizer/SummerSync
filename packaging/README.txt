@@ -93,7 +93,10 @@ Known issues
 
 If something goes wrong
 -----------------------
-Send the host (or the mod's page at mysummersync.com) the whole folder
+Report it from the game, right when it happens: Esc > REPORT A BUG (also in
+the main menu, with F6, or /report in the chat). Say what happened and press
+Send; keep the code it shows (R-XXXXXX) and give it on the Discord.
+Or send the host (or the mod's page at mysummersync.com) the whole folder
    <Mods folder>\Config\Mod Settings\SummerSync\
 compressed (right click > Send to > Compressed folder). It holds the log of the
 last time you opened the game (SummerSync.log) and the five before it. A
@@ -110,8 +113,15 @@ What is shared between players
   to the host's log. The logs hold your Steam name, your Steam ID and the folder where
   the game is installed.
 - To know if there is a new version, the mod asks which one is the latest
-  published (a small file on mysummersync.com, fetched by the Steam client). Nothing else
-  leaves your computer.
+  published (a small file on mysummersync.com, fetched by the Steam client).
+- A bug report, only when you send one (Esc > REPORT A BUG, F6 or /report in
+  the chat, and then Send): the mod's logs (this game's and the five before
+  it), its settings and keys, the game's output_log.txt and a picture of the
+  session at that moment go to SummerSync's reports server, through the Steam
+  client. Your Windows user folder is taken out of the paths. They hold the
+  players' Steam names and IDs and what was said in the chat. In a session the
+  other players are told the report's code and asked whether to send theirs.
+  Nothing else leaves your computer.
 
 
 Uninstall

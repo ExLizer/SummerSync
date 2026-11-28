@@ -6,7 +6,7 @@ namespace SummerSync.Core.Net
     public static class Protocol
     {
         /// <summary>Bumped on any change that makes old and new builds misunderstand each other.</summary>
-        public const ushort Version = 40;
+        public const ushort Version = 41;
 
         // First byte of every datagram.
         public const byte ConnectRequest = 1;

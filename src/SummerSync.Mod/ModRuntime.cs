@@ -79,6 +79,15 @@ namespace SummerSync.Unity
         /// <summary>The key that opens the chat, as the player set it in the mod's keys; null before the settings exist.</summary>
         public static SettingsKeybind ChatKey { get; set; }
 
+        /// <summary>The key that opens the bug report's window; null before the settings exist.</summary>
+        public static SettingsKeybind ReportKey { get; set; }
+
+        /// <summary>The log file this copy of the game writes ("SummerSync.log", or "SummerSync.2.log" for a second copy); null without one.</summary>
+        public static string LogPath
+        {
+            get { return logFile == null ? null : logFile.Path; }
+        }
+
         /// <summary>Whether the player asked for the owner labels over nearby objects.</summary>
         public static bool ShowObjectOwners
         {

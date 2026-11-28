@@ -67,6 +67,7 @@ namespace SummerSync.Unity
             openConsole = Settings.AddCheckBox("openConsole", "Open MSCLoader's console on the mod's warnings and errors", false, ApplySettings, true);
             toggleOverlay = Keybind.Add("toggleOverlay", Edition.Developer ? "Toggle debug overlay" : "Toggle connection info", KeyCode.F8);
             ModRuntime.ChatKey = Keybind.Add("chat", "Chat: write a line (Enter sends, Esc closes)", Players.ChatBox.DefaultKey);
+            ModRuntime.ReportKey = Keybind.Add("report", "Report a bug (also in the Esc menu)", Reports.ReportWindow.DefaultKey);
             networkSettings.Create(Edition.Developer);
             if (Edition.Developer)
             {

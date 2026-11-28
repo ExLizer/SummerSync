@@ -9,9 +9,9 @@ namespace SummerSync.Unity.Menu
 {
     /// <summary>
     /// The main menu's column with buttons of the mod's, made from the game's own. Without a lobby it
-    /// reads CONTINUE, NEW GAME, LOAD SAVE, HOST, CREDITS, QUIT; while this game hosts a lobby, ENTER GAME (the game's own
-    /// CONTINUE, in green), INVITE, LOBBY SETTINGS, CLOSE LOBBY, CREDITS, QUIT; while it is a guest in one, ENTER GAME (once
-    /// the host's world is here), LEAVE LOBBY, CREDITS, QUIT.
+    /// reads CONTINUE, NEW GAME, LOAD SAVE, HOST, REPORT A BUG, CREDITS, QUIT; while this game hosts a lobby, ENTER GAME (the
+    /// game's own CONTINUE, in green), INVITE, LOBBY SETTINGS, CLOSE LOBBY, REPORT A BUG, CREDITS, QUIT; while it is a guest in
+    /// one, ENTER GAME (once the host's world is here), LEAVE LOBBY, REPORT A BUG, CREDITS, QUIT.
     ///
     /// What is assumed about the game (docs/GAME_NOTES.md, "Los botones del menú"): the column is "Interface/Buttons", tilted,
     /// one button under the other at the same step; each button is a trigger box with its words as a text mesh ("GFX", and
@@ -37,6 +37,7 @@ namespace SummerSync.Unity.Menu
         public const int LobbySettings = 4;
         public const int CloseLobby = 5;
         public const int LeaveLobby = 6;
+        public const int Report = 7;
 
         private const string ButtonsPath = "Interface/Buttons";
         private const string InterfacePath = "Interface";
@@ -48,14 +49,21 @@ namespace SummerSync.Unity.Menu
         // Top to bottom; the ones that show stack up from the last, with no gap.
         private const int Continue = 0;
         private const int NewGame = 1;
-        private const int Credits = 8;
-        private const int Quit = 9;
+        private const int ReportButton = 8;
+        private const int Credits = 9;
+        private const int Quit = 10;
+
+        // Top to bottom. Without a lobby, REPORT A BUG goes over HOST: what is under HOST may be moved one step down by another
+        // mod (MySummerMMO puts its SERVERS there and hangs HOST, CREDITS and QUIT one step lower), and a button of the mod's
+        // under HOST would then be drawn over it. In a lobby it goes over CREDITS.
+        private static readonly int[] PlainOrder = { Continue, NewGame, 2, ReportButton, 3, 4, 5, 6, 7, Credits, Quit };
+        private static readonly int[] LobbyOrder = { Continue, NewGame, 2, 3, 4, 5, 6, 7, ReportButton, Credits, Quit };
 
         private static readonly Color EnterGreen = new Color(0.3f, 0.86f, 0.22f, 1f);
         private static int clicked;
 
         private readonly Logger log;
-        private readonly Transform[] column = new Transform[10];
+        private readonly Transform[] column = new Transform[11];
         private readonly Vector3[] corners = new Vector3[8];
         private GameObject buttons;
         private GameObject menuInterface;
@@ -148,12 +156,13 @@ namespace SummerSync.Unity.Menu
             }
 
             Show(column[7], guest);
+            Show(column[ReportButton], true);
 
             Enter(lobby);
             Stack();
             if (fitFrames > 0 && --fitFrames == 0)
             {
-                for (int i = 2; i <= 7; i++)
+                for (int i = 2; i <= ReportButton; i++)
                 {
                     Fit(column[i], templateWidth, templateSize, templateCenter);
                 }
@@ -199,8 +208,8 @@ namespace SummerSync.Unity.Menu
             }
 
             GameFont = words.font;
-            string[] names = { "LoadSave", "Host", "Invite", "LobbySettings", "CloseLobby", "LeaveLobby" };
-            string[] labels = { "LOAD SAVE", "HOST", "INVITE", "LOBBY SETTINGS", "CLOSE LOBBY", "LEAVE LOBBY" };
+            string[] names = { "LoadSave", "Host", "Invite", "LobbySettings", "CloseLobby", "LeaveLobby", "Report" };
+            string[] labels = { "LOAD SAVE", "HOST", "INVITE", "LOBBY SETTINGS", "CLOSE LOBBY", "LEAVE LOBBY", "REPORT A BUG" };
             for (int i = 0; i < names.Length; i++)
             {
                 GameObject made = Make(template, "SummerSync " + names[i], labels[i], i + 1);
@@ -359,9 +368,10 @@ namespace SummerSync.Unity.Menu
         private void Stack()
         {
             int place = 0;
-            for (int i = column.Length - 1; i >= 0; i--)
+            int[] order = entering ? LobbyOrder : PlainOrder;
+            for (int o = order.Length - 1; o >= 0; o--)
             {
-                Transform button = column[i];
+                Transform button = column[order[o]];
                 if (button == null || !button.gameObject.activeSelf)
                 {
                     continue;

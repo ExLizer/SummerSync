@@ -23,6 +23,9 @@ namespace SummerSync.Unity.Players
         public const KeyCode DefaultKey = KeyCode.Y;
 
         private const string ControlName = "SummerSyncChat";
+
+        // A line that starts so opens the bug report instead of being said.
+        private const string ReportPrefix = "/report";
         private const float ShownSeconds = 14f;
         private const float FadeSeconds = 2f;
         private const int ShownLines = 8;
@@ -61,6 +64,9 @@ namespace SummerSync.Unity.Players
         }
 
         public bool IsOpen { get; private set; }
+
+        /// <summary>What "/report [text]" in the chat does: opens the bug report's window with that text.</summary>
+        public static Action<string> ReportCommand { get; set; }
 
         /// <summary>
         /// Call every frame. <paramref name="busy"/>: a window of the mod's is open, which keeps the chat closed.
@@ -109,6 +115,11 @@ namespace SummerSync.Unity.Players
             if (chat == null || manager.Session == null || manager.Session.State != SessionState.Connected)
             {
                 return "There is no session to write to.";
+            }
+
+            if (OpensReport(text))
+            {
+                return "Chat: the bug report's window is open.";
             }
 
             if (string.Equals(text, "open", StringComparison.OrdinalIgnoreCase))
@@ -257,6 +268,12 @@ namespace SummerSync.Unity.Players
         private void Send()
         {
             string text = typed;
+
+            if (OpensReport(text))
+            {
+                return;
+            }
+
             ChatReplication chat = manager.Chat;
             ChatSayResult result = chat == null ? ChatSayResult.NotConnected : chat.Say(text);
             if (result == ChatSayResult.TooFast)
@@ -267,6 +284,21 @@ namespace SummerSync.Unity.Players
             }
 
             Close();
+        }
+
+        // "/report what happened": the bug report's window, with that text; nothing goes to the others.
+        private bool OpensReport(string text)
+        {
+            string trimmed = (text ?? string.Empty).Trim();
+            if (ReportCommand == null || !(string.Equals(trimmed, ReportPrefix, StringComparison.OrdinalIgnoreCase)
+                || trimmed.StartsWith(ReportPrefix + " ", StringComparison.OrdinalIgnoreCase)))
+            {
+                return false;
+            }
+
+            Close();
+            ReportCommand(trimmed.Substring(ReportPrefix.Length).Trim());
+            return true;
         }
 
         private static string Describe(ChatLine line)

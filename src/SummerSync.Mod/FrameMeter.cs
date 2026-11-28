@@ -41,6 +41,10 @@ namespace SummerSync.Unity
         private const double MemoryEvery = 60.0;
         private const int DetailShown = 10;
 
+        // The last lines kept for a bug report: static, so that they outlive the mod's object when the menu loads again.
+        private const int RecentKept = 16;
+        private static readonly Queue<string> Recent = new Queue<string>();
+
         private static readonly string[] Names = { "physics steps", "its update", "vehicles", "players", "loose objects", "doors", "the rest" };
 
         private readonly Logger log;
@@ -196,7 +200,9 @@ namespace SummerSync.Unity
                 .Append(". ").Append(slow).Append(" slow frame(s) so far");
             text.Append(unsaid > 0 ? ", " + unsaid + " of them not written." : ".");
             unsaid = 0;
-            log.Info(LogCategory.Vehicle, text.ToString());
+            string line = text.ToString();
+            log.Info(LogCategory.Vehicle, line);
+            Remember(line);
         }
 
         // Once a minute: how much the mod asked of the memory, part by part, and how often the collector ran.
@@ -246,14 +252,46 @@ namespace SummerSync.Unity
             }
 
             text.Append(most.Count > 0 && most[0].Value >= 1024 ? "." : string.Empty);
-            log.Info(LogCategory.Vehicle, text.ToString());
+            string said = text.ToString();
+            log.Info(LogCategory.Vehicle, said);
+            Remember(said);
             Array.Clear(asked, 0, asked.Length);
             detail.Clear();
             collectionsAtMemory = collections;
         }
 
-        private static int Collections()
+        /// <summary>The last lines written about slow frames and memory, oldest first, with when (for a bug report).</summary>
+        public static void AppendRecent(StringBuilder into)
         {
+            lock (Recent)
+            {
+                if (Recent.Count == 0)
+                {
+                    into.Append("  (none yet: no frame over ").Append(Milliseconds(SlowFrame)).Append(" in a session, and no minute of memory)\n");
+                    return;
+                }
+
+                foreach (string line in Recent)
+                {
+                    into.Append("  ").Append(line).Append('\n');
+                }
+            }
+        }
+
+        private static void Remember(string line)
+        {
+            lock (Recent)
+            {
+                if (Recent.Count >= RecentKept)
+                {
+                    Recent.Dequeue();
+                }
+
+                Recent.Enqueue(DateTime.Now.ToString("HH:mm:ss", CultureInfo.InvariantCulture) + " " + line);
+            }
+        }
+
+        private static int Collections()        {
             return GC.CollectionCount(0);
         }
 

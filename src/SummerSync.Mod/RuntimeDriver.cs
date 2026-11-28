@@ -5,6 +5,7 @@ using SummerSync.Core.World;
 using SummerSync.Unity.Menu;
 using SummerSync.Unity.Objects;
 using SummerSync.Unity.Players;
+using SummerSync.Unity.Reports;
 using SummerSync.Unity.Vehicles;
 using SummerSync.Unity.World;
 using UnityEngine;
@@ -149,6 +150,8 @@ namespace SummerSync.Unity
         private bool pickerFailed;
         private ChatBox chat;
         private bool chatFailed;
+        private ReportWindow report;
+        private bool reportFailed;
         private bool pickerOffered;
         private MenuColumn column;
         private WorldWindow worldWindow;
@@ -625,6 +628,31 @@ namespace SummerSync.Unity
             }
         }
 
+        /// <summary>The "ss report" console command and the chat's "/report". See <see cref="ReportWindow.Command"/>.</summary>
+        public static string Report(string text)
+        {
+            // Unity's null check is also true for an object that has been destroyed.
+            if (current == null || current.report == null)
+            {
+                return "The mod is not running yet.";
+            }
+
+            if (current.reportFailed)
+            {
+                return "The bug report's window failed and is off until the main menu loads again (see the log).";
+            }
+
+            try
+            {
+                return current.report.Command(text, current.playersFailed ? null : current.players.LocalPlayer);
+            }
+            catch (Exception exception)
+            {
+                current.ReportFailed(exception);
+                return "The bug report's window failed: " + exception.Message;
+            }
+        }
+
         /// <summary>The "ss car" console command. See <see cref="VehiclePresenter.Report"/>.</summary>
         public static string CarReport()
         {
@@ -654,6 +682,7 @@ namespace SummerSync.Unity
             looks = new LookSync(ModRuntime.Log, ModRuntime.Network.Manager, ModRuntime.SettingsFolder);
             picker = new CharacterPicker(ModRuntime.Log, looks);
             chat = new ChatBox(ModRuntime.Log, ModRuntime.Network.Manager);
+            ChatBox.ReportCommand = text => Report(text);
             players.Looks = looks;
             lookCapture = new LookCapture(ModRuntime.Log, ModRuntime.Network.Manager);
             lobby = new MenuLobby(ModRuntime.Log, ModRuntime.Network.Manager, looks);
@@ -718,6 +747,7 @@ namespace SummerSync.Unity
             heist = new PokerHeistSync(ModRuntime.Log, ModRuntime.Network.Manager, ropes, objects);
             dentsFailed = !DentSync.Working;
             frameMeter = new FrameMeter(ModRuntime.Log);
+            report = new ReportWindow(ModRuntime.Log, ModRuntime.Network.Manager, local => SessionSnapshot.Write(ModRuntime.Network.Manager, vehicles, objects, local));
             players.OnLevelLoaded(Application.loadedLevelName);
             HostWorld.OnLevelLoaded(Application.loadedLevelName);
             StartCoroutine(AfterEveryPhysicsStep());
@@ -820,11 +850,12 @@ namespace SummerSync.Unity
             }
 
             // After the network: the lines that just came in show this frame.
+            bool windowOpen = (!pickerFailed && picker.IsOpen) || (!worldsFailed && (worldWindow.IsOpen || worldWindow.Creating));
             if (!chatFailed)
             {
                 try
                 {
-                    chat.Update((!pickerFailed && picker.IsOpen) || (!worldsFailed && (worldWindow.IsOpen || worldWindow.Creating)));
+                    chat.Update(windowOpen || (!reportFailed && report.IsOpen));
                 }
                 catch (Exception exception)
                 {
@@ -832,6 +863,20 @@ namespace SummerSync.Unity
                 }
             }
             FrameMeter.Mark("chat.Update");
+
+            if (!reportFailed)
+            {
+                try
+                {
+                    Transform local = playersFailed ? null : players.LocalPlayer;
+                    report.Update(ModRuntime.Network.Now, local, local != null && !HostWorld.InMenu, windowOpen || (!chatFailed && chat.IsOpen));
+                }
+                catch (Exception exception)
+                {
+                    ReportFailed(exception);
+                }
+            }
+            FrameMeter.Mark("report.Update");
 
             MusicImport.Update(HostWorld.InMenu, ModRuntime.ImportMusic, ModRuntime.Network.Now, ModRuntime.Log);
             CdSync.Update(ModRuntime.Network.Manager, ModRuntime.Log, ModRuntime.Network.Now, ModRuntime.SettingsFolder);
@@ -882,6 +927,13 @@ namespace SummerSync.Unity
                     {
                         worldWindow.LeaveLobby();
                     }
+                    else if (clicked == MenuColumn.Report)
+                    {
+                        if (!reportFailed && !worldWindow.IsOpen && !(!pickerFailed && picker.IsOpen))
+                        {
+                            report.Open(null, null);
+                        }
+                    }
                     else if (clicked != 0 && !guest)
                     {
                         if (!pickerFailed && picker.IsOpen)
@@ -923,7 +975,7 @@ namespace SummerSync.Unity
 
             if (inMenu)
             {
-                MenuClicks.Hold((!worldsFailed && worldWindow.IsOpen) || (!pickerFailed && picker.IsOpen), ModRuntime.Log);
+                MenuClicks.Hold((!worldsFailed && worldWindow.IsOpen) || (!pickerFailed && picker.IsOpen) || (!reportFailed && report.IsOpen), ModRuntime.Log);
             }
         }
 
@@ -1029,6 +1081,18 @@ namespace SummerSync.Unity
         {
             frameMeter.Start(ModRuntime.Network.Now);
             LateUpdateParts();
+            if (!reportFailed)
+            {
+                try
+                {
+                    report.LateUpdate();
+                }
+                catch (Exception exception)
+                {
+                    ReportFailed(exception);
+                }
+            }
+
             frameMeter.Add(FrameMeter.Part.Rest, ModRuntime.Network.Now);
             frameMeter.EndFrame();
         }
@@ -2173,6 +2237,17 @@ namespace SummerSync.Unity
         private void OnGUI()
         {
             DrawScreens();
+            if (!reportFailed)
+            {
+                try
+                {
+                    report.OnGUI(HostWorld.InMenu || Cursor.visible);
+                }
+                catch (Exception exception)
+                {
+                    ReportFailed(exception);
+                }
+            }
 
             // Last, over everything else of the mod's.
             if (!chatFailed)
@@ -2297,6 +2372,20 @@ namespace SummerSync.Unity
             }
         }
 
+        private void ReportFailed(Exception exception)
+        {
+            reportFailed = true;
+            ModRuntime.Log.Error(LogCategory.General, "The bug report's window failed; it is off until the main menu loads again. " + exception);
+            try
+            {
+                report.Dispose();
+            }
+            catch (Exception)
+            {
+                // Whatever broke may break the clean-up too.
+            }
+        }
+
         private void ChatFailed(Exception exception)
         {
             chatFailed = true;
@@ -2400,6 +2489,11 @@ namespace SummerSync.Unity
 
         private void OnDestroy()
         {
+            if (report != null)
+            {
+                report.Dispose();
+            }
+
             // Normally a repeat of one of the two above, and then it does nothing.
             ModRuntime.Network.Shutdown("the mod's game object was destroyed");
         }

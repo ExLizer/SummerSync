@@ -98,7 +98,10 @@ Problemas conocidos
 
 Si algo sale mal
 ----------------
-Mandale al host (o a la página del mod, en mysummersync.com) la carpeta entera
+Reportalo desde el juego, en el momento: Esc > REPORT A BUG (también en el
+menú principal, con F6, o /report en el chat). Contá qué pasó y apretá Enviar;
+guardá el código que muestra (R-XXXXXX) y pasalo en el Discord.
+O mandale al host (o a la página del mod, en mysummersync.com) la carpeta entera
    <carpeta Mods>\Config\Mod Settings\SummerSync\
 comprimida (clic derecho > Enviar a > Carpeta comprimida). Tiene el registro de
 la última vez que abriste el juego (SummerSync.log) y los cinco anteriores.
@@ -115,8 +118,15 @@ Qué se comparte entre los jugadores
   pasa) llegan al registro del host. Los registros tienen tu nombre de Steam, tu
   identificador de Steam y la carpeta donde está instalado el juego.
 - Para saber si hay una versión nueva, el mod pregunta cuál es la última
-  publicada (un archivo chico en mysummersync.com, pedido por el cliente de Steam). Nada
-  más sale de tu computadora.
+  publicada (un archivo chico en mysummersync.com, pedido por el cliente de Steam).
+- Un reporte de bug, solo cuando mandás uno (Esc > REPORT A BUG, F6 o /report
+  en el chat, y después Enviar): los registros del mod (el de esta partida y
+  los cinco anteriores), sus ajustes y teclas, el output_log.txt del juego y una
+  foto de la sesión en ese momento van al servidor de reportes de SummerSync,
+  por el cliente de Steam. La carpeta de tu usuario de Windows se saca de las
+  rutas. Llevan los nombres e identificadores de Steam de los jugadores y lo que
+  se dijo en el chat. En una sesión, a los demás se les avisa el código del
+  reporte y se les pregunta si mandan el suyo. Nada más sale de tu computadora.
 
 
 Cómo sacarlo

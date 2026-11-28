@@ -25,6 +25,12 @@ namespace SummerSync.Unity
         /// </summary>
         public const string VersionFile = "https://mysummersync.com/version.txt";
 
+        /// <summary>
+        /// Where the bug reports go: the base address of the reports' server, with no slash at the end (the upload is
+        /// "{this}/v1/reports"). The developers' build can point elsewhere for tests ("ss report url").
+        /// </summary>
+        public const string ReportsEndpoint = "https://summersync-reports.summersync-reports.workers.dev";
+
         /// <summary>"dev" in the developers' build, nothing in the public one: for the overlay and the log.</summary>
         public static string Mark
         {

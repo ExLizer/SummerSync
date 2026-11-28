@@ -45,6 +45,8 @@ namespace SummerSync.Unity.Net
 
         private const string SatsumaUsage = "ss satsuma [build|<entry>]   The Satsuma's assembly: this game's car against the session's, and what is being done to it; an entry ('DatabaseBody/Door_Left') bolt by bolt. 'build' (test aid) puts it together here the game's way";
 
+        private const string ReportUsage = "ss report [<text>|status|snapshot|no|close]   The bug report (F6 unless changed in the mod's keys, REPORT A BUG in the Esc menu and the main menu, '/report' in the chat): opens its window, with that text if given; 'status', where reports go and the last one sent; 'snapshot', writes to the log the session as a report would carry it, sending nothing; 'no', leaves another player's report unanswered. Developers' build, test aids: 'url <address>|reset', 'send' (as the Send button), 'gzipstream', 'escape'";
+
         private const string ChatUsage = "ss chat [<text>]   The text chat (Y in the game, unless changed in the mod's keys): how it stands; with a text, says it as if typed";
 
         // What only helps testing, and changes the world or this game's connection: brings vehicles, moves the clock, the
@@ -264,6 +266,12 @@ namespace SummerSync.Unity.Net
                 return;
             }
 
+            if (args.Length > 0 && (string.Equals(args[0], "report", System.StringComparison.OrdinalIgnoreCase) || string.Equals(args[0], "reporte", System.StringComparison.OrdinalIgnoreCase)))
+            {
+                ModConsole.Print(Prefix + RuntimeDriver.Report(args.Length > 1 ? string.Join(" ", args, 1, args.Length - 1) : null));
+                return;
+            }
+
             if (args.Length > 0 && string.Equals(args[0], "chat", System.StringComparison.OrdinalIgnoreCase))
             {
                 ModConsole.Print(Prefix + RuntimeDriver.Chat(args.Length > 1 ? string.Join(" ", args, 1, args.Length - 1) : null));
@@ -302,6 +310,7 @@ namespace SummerSync.Unity.Net
                     ModConsole.Print(WoodUsage);
                     ModConsole.Print(LookUsage);
                     ModConsole.Print(ChatUsage);
+                    ModConsole.Print(ReportUsage);
                     ModConsole.Print(LobbyUsage);
                     ModConsole.Print(WorldsUsage);
                     ModConsole.Print(UpdateUsage);

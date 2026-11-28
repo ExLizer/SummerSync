@@ -4,6 +4,7 @@ using SummerSync.Core.Objects;
 using SummerSync.Core.Vehicles;
 using SummerSync.Core.Players;
 using SummerSync.Core.Diagnostics;
+using SummerSync.Core.Reports;
 using SummerSync.Core.World;
 
 namespace SummerSync.Core.Net
@@ -262,6 +263,15 @@ namespace SummerSync.Core.Net
             get { return local == null ? null : local.Chat; }
         }
 
+        /// <summary>
+        /// The notices of the players' bug reports, or null when offline. In the loopback test, the client end, like
+        /// <see cref="Chat"/>.
+        /// </summary>
+        public ReportReplication Reports
+        {
+            get { return local == null ? null : local.Reports; }
+        }
+
         /// <summary>Datagrams the simulator dropped on purpose during the current session.</summary>
         public long SimulatedDrops
         {
@@ -374,6 +384,7 @@ namespace SummerSync.Core.Net
 
             local.Players.Update(now);
             local.Chat.Update(now);
+            local.Reports.Update(now);
             local.Objects.Update(now);
             local.Vehicles.Update(now);
             local.Switches.Update(now);
@@ -463,6 +474,7 @@ namespace SummerSync.Core.Net
                 Cds = new FileTransfer(session, log, FileChannel.Cds),
                 Art = new FileTransfer(session, log, FileChannel.Art),
                 Chat = new ChatReplication(session, log),
+                Reports = new ReportReplication(session, log),
             };
         }
 
@@ -526,6 +538,7 @@ namespace SummerSync.Core.Net
                     link.Cds.Detach();
                     link.Art.Detach();
                     link.Chat.Detach();
+                    link.Reports.Detach();
                     if (link.Session.StaleDatagrams > 0 || link.Session.MalformedDatagrams > 0)
                     {
                         log.Info(
@@ -656,6 +669,8 @@ namespace SummerSync.Core.Net
             public FileTransfer Art { get; set; }
 
             public ChatReplication Chat { get; set; }
+
+            public ReportReplication Reports { get; set; }
         }
     }
 }

@@ -1408,6 +1408,28 @@ namespace SummerSync.Unity.World
             flag.Was = flag.Damaged.Value;
         }
 
+        /// <summary>For a bug report's snapshot: the Satsuma's hubs as this game has them, each with its state and its tyre's health.</summary>
+        public static void AppendTyres(System.Text.StringBuilder text)
+        {
+            CarValueSync sync = current;
+            if (sync == null || sync.punctures.Count == 0)
+            {
+                text.Append("Satsuma's tyres: not watched here (no session, or no car).\n");
+                return;
+            }
+
+            text.Append("Satsuma's tyres (this game ").Append(sync.runsCar ? "runs the car's numbers" : "does not run the car's numbers")
+                .Append(", ").Append(sync.flatsHereAlone).Append(" went flat here alone):\n");
+            for (int i = 0; i < sync.punctures.Count; i++)
+            {
+                PunctureWatch watch = sync.punctures[i];
+
+                // Unity's null check is also true for a destroyed object.
+                text.Append("  ").Append(watch.Spec.Entry).Append(": ")
+                    .Append(watch.Machine == null ? "no machine" : "'" + watch.Machine.ActiveStateName + "'; " + sync.DescribeHub(watch.Machine)).Append('\n');
+            }
+        }
+
         // What a hub's "Condition" read when it left its resting state: the health it compares, the tyre it reads it from and
         // that tyre's own, the car's speed, and the corner's suspension machine.
         private string DescribeHub(PlayMakerFSM machine)
