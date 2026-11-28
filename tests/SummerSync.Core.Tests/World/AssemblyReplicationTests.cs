@@ -767,6 +767,86 @@ public class AssemblyReplicationTests
         Assert.Equal(0, host.Car.Malformed + second.Car.Malformed);
     }
 
+    // What a machine that does not run the car hands its game every frame (the game side writes it while it differs).
+    private static float[] ShownNow(Garage garage)
+    {
+        var shown = new float[garage.Values.Length];
+        for (int i = 0; i < shown.Length; i++)
+        {
+            shown[i] = garage.Car.HasValue(i) ? garage.Car.ShownValue(i) : float.NaN;
+        }
+
+        return shown;
+    }
+
+    [Fact]
+    public void The_host_that_hands_the_numbers_over_keeps_showing_its_own_until_the_new_owner_s_word()
+    {
+        // A tyre's health of nothing, shown even for one frame, lets the hub's machine go flat in that game for good
+        // (the host's log of 2026-11-27: four flat tyres 18 ms after "player 1 runs the car's numbers now").
+        var (net, host, first, second) = Session(new NetworkConditions { LatencyMs = 80, JitterMs = 10 });
+        host.Values[0] = 3f;
+        host.Values[1] = 5f;
+        host.Values[2] = 100f;
+        net.Run(1);
+        Assert.Equal(new[] { 3f, 5f, 100f }, first.Values);
+
+        // Its game burns a little oil just before it lets go, less than its step: not said yet, but in the word it says on
+        // letting go.
+        host.Values[0] = 3.004f;
+        net.Run(1.0 / 60.0);
+        Assert.Equal(3f, first.Values[0]);
+        Assert.True(host.Car.SetValuesOwner(first.Id));
+        Assert.False(host.Car.OwnsValues);
+        Assert.Equal(new[] { 3.004f, 5f, 100f }, ShownNow(host));
+        for (int frame = 0; frame < 60; frame++)
+        {
+            net.Run(1.0 / 60.0);
+            Assert.Equal(new[] { 3.004f, 5f, 100f }, ShownNow(host));
+        }
+
+        Assert.True(first.Car.OwnsValues);
+        Assert.Equal(new[] { 3.004f, 5f, 100f }, first.Values);
+        Assert.Equal(new[] { 3.004f, 5f, 100f }, ShownNow(second));
+        Assert.Equal(host.Car.ValuesDigest(), first.Car.ValuesDigest());
+    }
+
+    [Fact]
+    public void A_guest_that_stops_running_the_numbers_shows_its_own_last_word_not_the_one_from_before()
+    {
+        var (net, host, first, _) = Session(new NetworkConditions { LatencyMs = 80, JitterMs = 10 });
+        host.Values[0] = 3f;
+        host.Values[2] = 100f;
+        net.Run(1);
+        Assert.True(host.Car.SetValuesOwner(first.Id));
+        net.Run(1);
+
+        // While its game runs the car, a tyre goes flat there and the oil burns: said to the others.
+        first.Values[2] = 0f;
+        first.Values[0] = 2.5f;
+        net.Run(1);
+        Assert.Equal(new[] { 2.5f, 0f, 0f }, ShownNow(host));
+
+        // The host takes the car back. Until the host's first word, the guest shows what it said, never the numbers it had
+        // before it ran the car (a whole tyre and more oil).
+        Assert.True(host.Car.SetValuesOwner(host.Id));
+        bool lost = false;
+        for (int frame = 0; frame < 60; frame++)
+        {
+            net.Run(1.0 / 60.0);
+            lost |= !first.Car.OwnsValues;
+            if (lost)
+            {
+                Assert.Equal(new[] { 2.5f, 0f, 0f }, ShownNow(first));
+            }
+        }
+
+        Assert.True(lost);
+        Assert.True(host.Car.OwnsValues);
+        Assert.Equal(new[] { 2.5f, 0f, 0f }, host.Values);
+        Assert.Equal(host.Car.ValuesDigest(), first.Car.ValuesDigest());
+    }
+
     [Fact]
     public void The_owner_says_its_numbers_a_few_times_a_second_and_small_changes_later()
     {

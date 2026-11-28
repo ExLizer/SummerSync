@@ -32,7 +32,8 @@ public class SatsumaValuesTests
           ],
           "outcomes": [
             { "code": "puncture", "entry": "Wheels/FL", "path": "FL/AckerFL/wheelFL", "fsm": "Condition", "from": "State 1",
-              "into": ["Check rim", "Flat friction"], "event": "PUNCTURE" }
+              "into": ["Check rim", "Flat friction"], "event": "PUNCTURE",
+              "undo": { "state": "Flat friction", "event": "FIXED", "below": 1, "radius": "SettingTireRadius" } }
           ]
         }
         """;
@@ -147,6 +148,32 @@ public class SatsumaValuesTests
         Assert.Equal("State 1", puncture.From);
         Assert.Equal(new[] { "Check rim", "Flat friction" }, puncture.Into);
         Assert.Equal("PUNCTURE", puncture.Event);
+        Assert.Equal("Flat friction", puncture.Undo.State);
+        Assert.Equal("FIXED", puncture.Undo.Event);
+        Assert.Equal(1f, puncture.Undo.Below);
+        Assert.Equal("SettingTireRadius", puncture.Undo.Radius);
+        string undo = "\"undo\": { \"state\": \"Flat friction\", \"event\": \"FIXED\", \"below\": 1, \"radius\": \"SettingTireRadius\" }";
+        Assert.Contains(undo, Small);
+        Assert.Null(SatsumaValues.Parse(Small.Replace(undo, "\"note\": \"no way back\"")).Outcomes[0].Undo);
+    }
+
+    [Fact]
+    public void A_flat_alone_in_a_game_that_does_not_run_the_car_is_judged_by_the_word_of_the_one_that_does()
+    {
+        CarOutcomeUndo undo = SatsumaValues.Parse(Small).Outcomes[0].Undo;
+
+        // No word for that tyre yet (a tyre just put on): looked at again.
+        Assert.Equal(FlatVerdict.Wait, undo.Judge(false, 100f));
+        Assert.Equal(FlatVerdict.Wait, undo.Judge(true, float.NaN));
+
+        // Flat there too (the game sets a flat tyre's health to nothing): it stays.
+        Assert.Equal(FlatVerdict.Keep, undo.Judge(true, 0f));
+        Assert.Equal(FlatVerdict.Keep, undo.Judge(true, 0.99f));
+
+        // Whole there, even an old tyre under the 1.1 the machine needs to come back by itself (a new game's are 1.05 to 1.1).
+        Assert.Equal(FlatVerdict.PutBack, undo.Judge(true, 1f));
+        Assert.Equal(FlatVerdict.PutBack, undo.Judge(true, 1.05f));
+        Assert.Equal(FlatVerdict.PutBack, undo.Judge(true, 66.84f));
     }
 
     [Fact]
@@ -202,6 +229,9 @@ public class SatsumaValuesTests
     [InlineData("\"events\": [\"BREAK\"]", "\"events\": []", "\"events\"")]
     [InlineData("\"each\": \"boltChecks\"", "\"each\": \"screws\"", "each 'screws'")]
     [InlineData("\"code\": \"puncture\"", "\"code\": \"explosion\"", "code 'explosion'")]
+    [InlineData("\"below\": 1,", "\"below\": 0,", "\"below\" above nothing")]
+    [InlineData("\"radius\": \"SettingTireRadius\"", "\"radius\": \"\"", "radius variable")]
+    [InlineData("\"event\": \"FIXED\",", "\"event\": \"FIXED\", \"after\": 2,", "unknown field \"after\"")]
     [InlineData("\"path\": \"FL/AckerFL/wheelFL\", \"fsm\": \"Condition\", \"follow\"", "\"path\": \"wheel:Use\", \"fsm\": \"Condition\", \"follow\"", "below any wheel")]
     public void A_broken_book_is_refused_with_what_is_wrong(string from, string to, string expected)
     {
@@ -280,9 +310,17 @@ public class SatsumaValuesTests
         Assert.Equal(CarValueLocal.Any, book.Find("n2o setting")!.Local);
         Assert.Equal("DatabaseOrders/N2O Bottle", book.Find("n2o bottle")!.Entry);
 
-        // One tyre number for each hub, and one puncture watch for each wheel entry.
+        // One tyre number for each hub, and one puncture watch for each wheel entry. A tyre's health is 0 to 100, as the wheel's
+        // "Use" holds it (its "Load" clamps it, "Reset" sets 100): a tyre changed in every game at once (the change is relayed)
+        // is not 200 where it is added to the game that runs the car.
         Assert.Equal(4, book.Values.Count(v => v.FollowVariable == "ThisTire"));
+        Assert.All(book.Values.Where(v => v.FollowVariable == "ThisTire"), v => Assert.Equal(100f, v.Clamp(100f + 100f)));
+        Assert.All(book.Values.Where(v => v.FollowVariable == "ThisTire"), v => Assert.Equal(0f, v.Clamp(-0.4f)));
         Assert.Equal(new[] { "Wheels/FL", "Wheels/FR", "Wheels/RL", "Wheels/RR" }, book.Outcomes.Select(o => o.Entry));
+        // Each with the game's way back from a flat (level file, each hub's "Condition", 2026-11-28).
+        Assert.All(book.Outcomes, o => Assert.Equal("FIXED", o.Undo.Event));
+        Assert.All(book.Outcomes, o => Assert.Equal("Flat friction", o.Undo.State));
+        Assert.All(book.Outcomes, o => Assert.Equal(1f, o.Undo.Below));
 
         // The chance machines named in the research are all there.
         string[] machines = { "Logic", "RedLining", "FL", "FR", "RL", "RR", "Damage", "Gear Linkage", "Starter", "Oil", "FuelLine",

@@ -215,6 +215,53 @@ namespace SummerSync.Core.Vehicles
         public string[] Into { get; internal set; }
 
         public string Event { get; internal set; }
+
+        /// <summary>How the game brings the machine back from the outcome, or null when the book does not say.</summary>
+        public CarOutcomeUndo Undo { get; internal set; }
+    }
+
+    /// <summary>What a game that does not run the car does with a hub that went flat there by itself.</summary>
+    public enum FlatVerdict
+    {
+        /// <summary>What the machine that runs the car has is not known yet: looked at again.</summary>
+        Wait,
+
+        /// <summary>The machine that runs the car has it flat too: the flat stays.</summary>
+        Keep,
+
+        /// <summary>The machine that runs the car has it whole: put back as it is there.</summary>
+        PutBack,
+    }
+
+    /// <summary>
+    /// The game's own way back from a flat tyre (level file, "Condition" of each hub): its machine leaves <see cref="State"/>
+    /// on <see cref="Event"/> (by itself once the tyre's health is above 1.1), and a tyre under <see cref="Below"/> goes
+    /// flat again by itself. The wheel's radius is left flat by the machine; the trigger that puts a wheel on gives it the
+    /// <see cref="Radius"/> of the tyre's machine ("Set data").
+    /// </summary>
+    public sealed class CarOutcomeUndo
+    {
+        public string State { get; internal set; }
+
+        public string Event { get; internal set; }
+
+        public float Below { get; internal set; }
+
+        public string Radius { get; internal set; }
+
+        /// <summary>
+        /// A hub that went flat by itself in a game that does not run the car, judged by the health the machine that runs
+        /// it says (<paramref name="known"/>: whether there is a word for that tyre yet).
+        /// </summary>
+        public FlatVerdict Judge(bool known, float said)
+        {
+            if (!known || float.IsNaN(said) || float.IsInfinity(said))
+            {
+                return FlatVerdict.Wait;
+            }
+
+            return said < Below ? FlatVerdict.Keep : FlatVerdict.PutBack;
+        }
     }
 
     /// <summary>
@@ -246,7 +293,8 @@ namespace SummerSync.Core.Vehicles
         private static readonly string[] MirrorKeys = { "path", "axis" };
         private static readonly string[] FollowKeys = { "variable", "fsm" };
         private static readonly string[] ChanceKeys = { "name", "path", "each", "fsm", "block", "state", "events", "to", "variable", "value", "note" };
-        private static readonly string[] OutcomeKeys = { "code", "entry", "path", "fsm", "from", "into", "event", "note" };
+        private static readonly string[] OutcomeKeys = { "code", "entry", "path", "fsm", "from", "into", "event", "undo", "note" };
+        private static readonly string[] UndoKeys = { "state", "event", "below", "radius" };
         private static readonly string[] Blocks = { "none", "pause", "weights", "hold", "force" };
         private static readonly string[] Locals = { "none", "up", "any" };
 
@@ -591,6 +639,30 @@ namespace SummerSync.Core.Vehicles
             if (watch.Entry.Length == 0 || watch.Machine.Length == 0 || watch.From.Length == 0 || watch.Event.Length == 0)
             {
                 throw new FormatException(what + " needs an entry, a machine, the state it leaves and the event that does it.");
+            }
+
+            object undo;
+            if (item.TryGetValue("undo", out undo) && undo != null)
+            {
+                string where = what + "'s \"undo\"";
+                Dictionary<string, object> back = JsonReader.Object(undo, where);
+                RequireKeys(back, UndoKeys, where);
+                watch.Undo = new CarOutcomeUndo
+                {
+                    State = JsonReader.String(back, "state", where),
+                    Event = JsonReader.String(back, "event", where),
+                    Below = (float)JsonReader.Number(back, "below", where),
+                    Radius = JsonReader.String(back, "radius", where),
+                };
+                if (watch.Undo.State.Length == 0 || watch.Undo.Event.Length == 0 || watch.Undo.Radius.Length == 0)
+                {
+                    throw new FormatException(where + " needs the state it leaves, the event that does it and the tyre's radius variable.");
+                }
+
+                if (!(watch.Undo.Below > 0f) || float.IsInfinity(watch.Undo.Below))
+                {
+                    throw new FormatException(where + " needs a \"below\" above nothing.");
+                }
             }
 
             return watch;

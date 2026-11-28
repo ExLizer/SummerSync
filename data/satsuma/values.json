@@ -180,6 +180,7 @@
       "variable": "TireHealth",
       "step": 0.5,
       "min": 0,
+      "max": 100,
       "local": "up"
     },
     {
@@ -190,6 +191,7 @@
       "variable": "TireHealth",
       "step": 0.5,
       "min": 0,
+      "max": 100,
       "local": "up"
     },
     {
@@ -200,6 +202,7 @@
       "variable": "TireHealth",
       "step": 0.5,
       "min": 0,
+      "max": 100,
       "local": "up"
     },
     {
@@ -210,6 +213,7 @@
       "variable": "TireHealth",
       "step": 0.5,
       "min": 0,
+      "max": 100,
       "local": "up"
     }
   ],
@@ -260,9 +264,13 @@
     { "name": "camshaft gear angle on removal", "path": "DatabaseMotor/CamshaftGear:", "fsm": "Removal", "block": "none" }
   ],
   "outcomes": [
-    { "code": "puncture", "entry": "Wheels/FL", "path": "FL/AckerFL/wheelFL", "fsm": "Condition", "from": "State 1", "into": ["Check rim", "Sound", "Flat friction", "Rim friction"], "event": "PUNCTURE" },
-    { "code": "puncture", "entry": "Wheels/FR", "path": "FR/AckerFR/wheelFR", "fsm": "Condition", "from": "State 1", "into": ["Check rim", "Sound", "Flat friction", "Rim friction"], "event": "PUNCTURE" },
-    { "code": "puncture", "entry": "Wheels/RL", "path": "RL/wheelRL", "fsm": "Condition", "from": "State 1", "into": ["Check rim", "Sound", "Flat friction", "Rim friction"], "event": "PUNCTURE" },
-    { "code": "puncture", "entry": "Wheels/RR", "path": "RR/wheelRR", "fsm": "Condition", "from": "State 1", "into": ["Check rim", "Sound", "Flat friction", "Rim friction"], "event": "PUNCTURE" }
+    { "code": "puncture", "entry": "Wheels/FL", "path": "FL/AckerFL/wheelFL", "fsm": "Condition", "from": "State 1", "into": ["Check rim", "Sound", "Flat friction", "Rim friction"], "event": "PUNCTURE",
+      "undo": { "state": "Flat friction", "event": "FIXED", "below": 1, "radius": "SettingTireRadius" } },
+    { "code": "puncture", "entry": "Wheels/FR", "path": "FR/AckerFR/wheelFR", "fsm": "Condition", "from": "State 1", "into": ["Check rim", "Sound", "Flat friction", "Rim friction"], "event": "PUNCTURE",
+      "undo": { "state": "Flat friction", "event": "FIXED", "below": 1, "radius": "SettingTireRadius" } },
+    { "code": "puncture", "entry": "Wheels/RL", "path": "RL/wheelRL", "fsm": "Condition", "from": "State 1", "into": ["Check rim", "Sound", "Flat friction", "Rim friction"], "event": "PUNCTURE",
+      "undo": { "state": "Flat friction", "event": "FIXED", "below": 1, "radius": "SettingTireRadius" } },
+    { "code": "puncture", "entry": "Wheels/RR", "path": "RR/wheelRR", "fsm": "Condition", "from": "State 1", "into": ["Check rim", "Sound", "Flat friction", "Rim friction"], "event": "PUNCTURE",
+      "undo": { "state": "Flat friction", "event": "FIXED", "below": 1, "radius": "SettingTireRadius" } }
   ]
 }

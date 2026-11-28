@@ -115,6 +115,14 @@ namespace SummerSync.Unity.World
         private const int FlatsLogged = 8;
         private int flatsHereAlone;
 
+        // How long a flat of this game alone waits for a word on its tyre before it is left as it is, and how many were put
+        // back in the session.
+        private const double FlatWordWait = 10.0;
+        private int flatsPutBack;
+
+        // A wheel's radius closer than this to its tyre's is its tyre's.
+        private const float RadiusTolerance = 0.001f;
+
         public CarValueSync(Logger log)
             : this(log, null)
         {
@@ -335,6 +343,7 @@ namespace SummerSync.Unity.World
 
             WatchFlags(now);
             WatchPunctures(now);
+            PutBackFlats(now);
             LetGoBrokenOff(now);
             if (deferred.Count > 0 && now >= settleUntil)
             {
@@ -1352,20 +1361,178 @@ namespace SummerSync.Unity.World
                 }
 
                 bool flat = watch.Last == watch.Spec.From && Array.IndexOf(watch.Spec.Into, state) >= 0;
+                CarOutcomeUndo undo = watch.Spec.Undo;
+                bool back = undo != null && watch.Last == undo.State && state == watch.Spec.From;
                 watch.Last = state;
+                if (back)
+                {
+                    // In any game: the machine comes back from a flat without giving the wheel its tyre's radius again.
+                    RestoreRadius(watch, "came back from a flat");
+                }
+
                 if (flat && settled && runsCar && !applying && watch.Entry >= 0 && replication.Report(AssemblyStep.Outcome(watch.Entry, watch.Spec.Code)))
                 {
                     Outcomes++;
                     log.Info(LogCategory.Vehicle, "Car numbers: the tyre of '" + watch.Spec.Entry + "' went flat here; told.");
                 }
-                else if (flat && !applying && !runsCar && flatsHereAlone < FlatsLogged)
+                else if (flat && !applying && !runsCar)
                 {
-                    // Not from the game that runs the car, which has the tyre whole as far as this game knows: written down with
-                    // what the hub's machine read, to find what lets a tyre go flat in only one game (reported 2026-11-23).
-                    flatsHereAlone++;
-                    log.Warning(LogCategory.Vehicle, "Car numbers: the tyre of '" + watch.Spec.Entry + "' went flat in this game, which does not run the car (into '" + state + "'): not told. " + DescribeHub(watch.Machine) + ".");
+                    // Not from the game that runs the car: judged against what that game says of the tyre (PutBackFlats).
+                    // Written down with what the hub's machine read.
+                    watch.Alone = undo != null;
+                    watch.AloneSince = now;
+                    if (flatsHereAlone < FlatsLogged)
+                    {
+                        flatsHereAlone++;
+                        log.Warning(LogCategory.Vehicle, "Car numbers: the tyre of '" + watch.Spec.Entry + "' went flat in this game, which does not run the car (into '" + state + "'): not told"
+                            + (watch.Alone ? ", it is made as the game that runs the car has it" : string.Empty) + ". " + DescribeHub(watch.Machine) + ".");
+                    }
                 }
             }
+        }
+
+        // A hub that went flat in this game alone (not by an outcome of the game that runs the car) is made as that game has
+        // it: kept flat if that game's word on its tyre is flat, otherwise put back whole the game's way (the tyre's health as
+        // said, the machine's own way back, the tyre's radius). Without this a flat of one game stays there for good: the
+        // machine comes back by itself once the health is above 1.1, and leaves the wheel's radius flat.
+        private void PutBackFlats(double now)
+        {
+            for (int i = 0; i < punctures.Count; i++)
+            {
+                PunctureWatch watch = punctures[i];
+                if (!watch.Alone)
+                {
+                    continue;
+                }
+
+                // Unity's null check is also true for a destroyed object.
+                if (runsCar || replication.OwnsValues || watch.Machine == null || !watch.Machine.enabled || !watch.Machine.gameObject.activeInHierarchy)
+                {
+                    // This game decides now, or the hub has no tyre machine running: nothing to make as another game has it.
+                    watch.Alone = false;
+                    continue;
+                }
+
+                Bound tyre = TyreOf(watch);
+                bool known = tyre != null && tyre.Followed != null && Available(tyre) && !tyre.AwaitWord && replication.HasValue(tyre.Index);
+                float said = known ? replication.ShownValue(tyre.Index) : float.NaN;
+                FlatVerdict verdict = watch.Spec.Undo.Judge(known, said);
+                if (verdict == FlatVerdict.Wait)
+                {
+                    if (now - watch.AloneSince > FlatWordWait)
+                    {
+                        watch.Alone = false;
+                        log.Warning(LogCategory.Vehicle, "Car numbers: the tyre of '" + watch.Spec.Entry + "' went flat in this game alone, and after " + FlatWordWait
+                            + " s there is no word on it from the game that runs the car: left as it is. " + DescribeHub(watch.Machine) + ".");
+                    }
+
+                    continue;
+                }
+
+                string health = said.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
+                if (verdict == FlatVerdict.Keep)
+                {
+                    watch.Alone = false;
+                    log.Info(LogCategory.Vehicle, "Car numbers: the tyre of '" + watch.Spec.Entry + "' is flat in the game that runs the car too (health " + health + "): kept flat here.");
+                    continue;
+                }
+
+                string state = watch.Machine.ActiveStateName;
+                if (state != watch.Spec.Undo.State && state != watch.Spec.From)
+                {
+                    // On its way to the flat state, or in one with no way back ("Rim friction": that hub has no tyre in this
+                    // game, the hub's "Data" says a bare rim).
+                    if (now - watch.AloneSince > FlatWordWait)
+                    {
+                        watch.Alone = false;
+                        log.Warning(LogCategory.Vehicle, "Car numbers: the tyre of '" + watch.Spec.Entry + "' went flat in this game alone and is whole in the game that runs the car (health "
+                            + health + "), but its machine is in '" + state + "', which has no way back: left as it is. " + DescribeHub(watch.Machine) + ".");
+                    }
+
+                    continue;
+                }
+
+                watch.Alone = false;
+                PutBack(watch, tyre, said, health);
+            }
+        }
+
+        private void PutBack(PunctureWatch watch, Bound tyre, float said, string health)
+        {
+            CarOutcomeUndo undo = watch.Spec.Undo;
+            PlayMakerFSM machine = watch.Machine;
+            string state = machine.ActiveStateName;
+
+            // Its health as the word says first: the machine's way back leads to the state that goes flat under 1.
+            Write(tyre, said);
+            tyre.Known = said;
+            tyre.HasKnown = true;
+            if (state == undo.State)
+            {
+                machine.SendEvent(undo.Event);
+            }
+
+            watch.Last = machine.ActiveStateName;
+            RestoreRadius(watch, "put back");
+            flatsPutBack++;
+            log.Info(LogCategory.Vehicle, "Car numbers: the tyre of '" + watch.Spec.Entry + "', flat in this game alone, is put back whole as the game that runs the car has it (health "
+                + health + "; its machine " + (state == undo.State ? "taken from '" + state + "' by " + undo.Event : "back by itself") + ", now in '" + watch.Last + "'). " + DescribeHub(machine) + ".");
+        }
+
+        // The wheel's radius back to its tyre's, as the trigger that puts the wheel on gives it ("Set data"); nothing if it is
+        // its tyre's already or the hub follows no tyre.
+        private void RestoreRadius(PunctureWatch watch, string why)
+        {
+            Bound tyre = TyreOf(watch);
+            float tyreRadius;
+            Wheel wheel = watch.Machine == null ? null : watch.Machine.GetComponent<Wheel>();
+            if (wheel == null || !TyreRadius(watch, tyre, out tyreRadius) || Math.Abs(wheel.radius - tyreRadius) < RadiusTolerance)
+            {
+                return;
+            }
+
+            float was = wheel.radius;
+            wheel.radius = tyreRadius;
+            log.Info(LogCategory.Vehicle, "Car numbers: the wheel of '" + watch.Spec.Entry + "' " + why + " with the radius of a flat tyre ("
+                + was.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture) + " m): its tyre's again ("
+                + tyreRadius.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture) + " m).");
+        }
+
+        // The radius the followed tyre's machine holds for the wheel, when there is one.
+        private static bool TyreRadius(PunctureWatch watch, Bound tyre, out float radius)
+        {
+            radius = 0f;
+
+            // Unity's null check is also true for a destroyed object.
+            if (tyre == null || tyre.Followed == null || watch.Spec.Undo == null)
+            {
+                return false;
+            }
+
+            PlayMakerFSM use = DoorSync.FindMachine(tyre.Followed.transform, tyre.Spec.FollowMachine);
+            FsmFloat setting = use == null ? null : use.FsmVariables.FindFsmFloat(watch.Spec.Undo.Radius);
+            if (setting == null || !(setting.Value > 0f))
+            {
+                return false;
+            }
+
+            radius = setting.Value;
+            return true;
+        }
+
+        // The tyre number on the same hub as a puncture watch.
+        private Bound TyreOf(PunctureWatch watch)
+        {
+            for (int i = 0; i < values.Count; i++)
+            {
+                CarValue spec = values[i].Spec;
+                if (spec.FollowVariable != null && spec.Place != null && watch.Spec.Place != null && spec.Place.Text == watch.Spec.Place.Text)
+                {
+                    return values[i];
+                }
+            }
+
+            return null;
         }
 
         private void SetDamaged(PartEntry entry, bool damaged)
@@ -1419,7 +1586,7 @@ namespace SummerSync.Unity.World
             }
 
             text.Append("Satsuma's tyres (this game ").Append(sync.runsCar ? "runs the car's numbers" : "does not run the car's numbers")
-                .Append(", ").Append(sync.flatsHereAlone).Append(" went flat here alone):\n");
+                .Append(", ").Append(sync.flatsHereAlone).Append(" went flat here alone, ").Append(sync.flatsPutBack).Append(" put back):\n");
             for (int i = 0; i < sync.punctures.Count; i++)
             {
                 PunctureWatch watch = sync.punctures[i];
@@ -1440,9 +1607,14 @@ namespace SummerSync.Unity.World
             PlayMakerFSM use = tyreObject == null ? null : DoorSync.FindMachine(tyreObject.transform, "Use");
             FsmFloat tyreHealth = use == null ? null : use.FsmVariables.FindFsmFloat("TireHealth");
             var text = new System.Text.StringBuilder(160);
-            text.Append("Its health ").Append(health == null ? "unknown" : health.Value.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture));
-            text.Append(", its tyre ").Append(tyreObject == null ? "none" : "'" + tyreObject.name + "'");
-            text.Append(" with ").Append(tyreHealth == null ? "no health" : tyreHealth.Value.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture));
+            text.Append("Its health ").Append(health == null ? "unknown" : health.Value.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture));
+            FsmString saveName = use == null ? null : use.FsmVariables.FindFsmString("ID");
+            text.Append(", its tyre ").Append(tyreObject == null ? "none" : "'" + tyreObject.name + "'" + (saveName == null || string.IsNullOrEmpty(saveName.Value) ? string.Empty : " (" + saveName.Value + ")"));
+            text.Append(" with ").Append(tyreHealth == null ? "no health" : tyreHealth.Value.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture));
+            Wheel wheel = machine.GetComponent<Wheel>();
+            FsmFloat tyreRadius = use == null ? null : use.FsmVariables.FindFsmFloat("SettingTireRadius");
+            text.Append(", the wheel's radius ").Append(wheel == null ? "unknown" : wheel.radius.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture))
+                .Append(" (its tyre's ").Append(tyreRadius == null ? "unknown" : tyreRadius.Value.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture)).Append(')');
             Rigidbody body = car == null ? null : car.GetComponent<Rigidbody>();
             text.Append(", the car ").Append(body == null ? "not found" : body.isKinematic ? "kinematic here" : "with its own physics here, at " + body.velocity.magnitude.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + " m/s");
             return text.ToString();
@@ -1625,6 +1797,10 @@ namespace SummerSync.Unity.World
             public int Entry;
             public PlayMakerFSM Machine;
             public string Last;
+
+            // Went flat in this game alone, and since when: to be made as the game that runs the car has it.
+            public bool Alone;
+            public double AloneSince;
         }
     }
 }

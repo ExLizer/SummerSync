@@ -22,7 +22,7 @@ namespace SummerSync.Core.World
     /// its own changes that is, so each machine shows the last word and its own changes not held in it yet, and nothing
     /// counts twice. A machine that starts running the car starts from what it showed, and the host sends it every
     /// change of the others the last word did not hold; what the machine that ran the car before said after that is
-    /// no longer the word.
+    /// no longer the word. The machine that stops running it shows its own last word until the new owner's comes.
     /// </summary>
     public sealed partial class AssemblyReplication
     {
@@ -91,7 +91,8 @@ namespace SummerSync.Core.World
             }
 
             SendBatch();
-            if (valuesOwner == session.LocalPlayerId)
+            bool wasMine = valuesOwner == session.LocalPlayerId;
+            if (wasMine)
             {
                 // What this game has not said yet goes before someone else takes over.
                 SendWord(true, clock);
@@ -123,6 +124,11 @@ namespace SummerSync.Core.World
                         delta.Forwarded = false;
                         uncounted[i] = delta;
                     }
+                }
+
+                if (wasMine)
+                {
+                    ShowOwnLastWord();
                 }
             }
 
@@ -540,11 +546,16 @@ namespace SummerSync.Core.World
                 return;
             }
 
+            bool wasMine = valuesOwner == session.LocalPlayerId;
             valuesOwner = owner;
             wordAbsorbed = heldAt;
             if (owner == session.LocalPlayerId)
             {
                 TakeOverValues();
+            }
+            else if (wasMine)
+            {
+                ShowOwnLastWord();
             }
 
             log.Info(LogCategory.Vehicle, "Car: player " + owner + " runs the car's numbers now" + (owner == session.LocalPlayerId ? " (this game)." : "."));
@@ -591,6 +602,24 @@ namespace SummerSync.Core.World
 
             fullWordDue = true;
             wordDue = true;
+        }
+
+        // This machine no longer runs the car's numbers: until the new owner's first word, it shows the last word it said
+        // itself, which is what the others have and what the new owner starts from. Not what it showed before it ran the car
+        // (on the host, nothing at all: its shown numbers were never written while it ran them), which the game would be
+        // handed at once: a tyre's health of nothing lets the hub's "Condition" go flat in that frame, and the flat stays.
+        private void ShowOwnLastWord()
+        {
+            for (int i = 0; i < current.Length; i++)
+            {
+                if (sentOnce[i])
+                {
+                    word[i] = lastSent[i];
+                    hasWord[i] = true;
+                }
+            }
+
+            ShowValues();
         }
 
         // The machine that runs the car adds another player's change: its game is told, and its next word holds it.
